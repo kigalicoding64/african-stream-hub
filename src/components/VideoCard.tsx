@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, Play } from "lucide-react";
 import type { Video } from "@/data/videos";
 
@@ -10,7 +10,32 @@ interface Props {
 
 export function VideoCard({ video, size = "default" }: Props) {
   const [hovered, setHovered] = useState(false);
+  const [inView, setInView] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const containerRef = useRef<HTMLAnchorElement>(null);
   const vidRef = useRef<HTMLVideoElement>(null);
+
+  // Lazy mount + viewport-based autoplay (muted preview)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        const visible = entry.isIntersecting && entry.intersectionRatio > 0.6;
+        setInView(visible);
+        const v = vidRef.current;
+        if (!v) return;
+        if (visible) {
+          v.play().catch(() => {});
+        } else {
+          v.pause();
+        }
+      },
+      { threshold: [0, 0.6, 1] }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   const onEnter = () => {
     setHovered(true);
@@ -22,8 +47,9 @@ export function VideoCard({ video, size = "default" }: Props) {
   };
   const onLeave = () => {
     setHovered(false);
-    vidRef.current?.pause();
+    if (!inView) vidRef.current?.pause();
   };
+  const showVideo = hovered || inView;
 
   return (
     <Link
