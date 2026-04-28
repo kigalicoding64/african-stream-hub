@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, Play } from "lucide-react";
 import type { Video } from "@/data/videos";
 
@@ -10,7 +10,32 @@ interface Props {
 
 export function VideoCard({ video, size = "default" }: Props) {
   const [hovered, setHovered] = useState(false);
+  const [inView, setInView] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const containerRef = useRef<HTMLAnchorElement>(null);
   const vidRef = useRef<HTMLVideoElement>(null);
+
+  // Lazy mount + viewport-based autoplay (muted preview)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        const visible = entry.isIntersecting && entry.intersectionRatio > 0.6;
+        setInView(visible);
+        const v = vidRef.current;
+        if (!v) return;
+        if (visible) {
+          v.play().catch(() => {});
+        } else {
+          v.pause();
+        }
+      },
+      { threshold: [0, 0.6, 1] }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   const onEnter = () => {
     setHovered(true);
@@ -22,11 +47,13 @@ export function VideoCard({ video, size = "default" }: Props) {
   };
   const onLeave = () => {
     setHovered(false);
-    vidRef.current?.pause();
+    if (!inView) vidRef.current?.pause();
   };
+  const showVideo = hovered || inView;
 
   return (
     <Link
+      ref={containerRef}
       to="/watch/$videoId"
       params={{ videoId: video.id }}
       className={`group block ${size === "wide" ? "w-[340px] sm:w-[380px]" : "w-full"} shrink-0`}
@@ -34,23 +61,26 @@ export function VideoCard({ video, size = "default" }: Props) {
       onMouseLeave={onLeave}
     >
       <div className="relative aspect-video overflow-hidden rounded-2xl bg-surface ring-1 ring-border transition-all duration-300 group-hover:ring-primary/50 group-hover:scale-[1.02] group-hover:shadow-[var(--shadow-elegant)]">
+        {!loaded && <div className="absolute inset-0 animate-pulse bg-surface-elevated" />}
         <img
           src={video.thumbnail}
           alt={video.title}
           loading="lazy"
+          decoding="async"
           width={1024}
           height={576}
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${hovered ? "opacity-0" : "opacity-100"}`}
+          onLoad={() => setLoaded(true)}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${showVideo ? "opacity-0" : "opacity-100"}`}
         />
-        {video.previewSrc && (
+        {video.previewSrc && inView && (
           <video
             ref={vidRef}
             src={video.previewSrc}
             muted
             playsInline
             loop
-            preload="none"
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${hovered ? "opacity-100" : "opacity-0"}`}
+            preload="metadata"
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${showVideo ? "opacity-100" : "opacity-0"}`}
           />
         )}
         {/* Gradient overlay */}
