@@ -1,0 +1,101 @@
+import { Link } from "@tanstack/react-router";
+import { useRef, useState } from "react";
+import { Eye, Play } from "lucide-react";
+import type { Video } from "@/data/videos";
+
+interface Props {
+  video: Video;
+  size?: "default" | "wide";
+}
+
+export function VideoCard({ video, size = "default" }: Props) {
+  const [hovered, setHovered] = useState(false);
+  const vidRef = useRef<HTMLVideoElement>(null);
+
+  const onEnter = () => {
+    setHovered(true);
+    const v = vidRef.current;
+    if (v) {
+      v.currentTime = 0;
+      v.play().catch(() => {});
+    }
+  };
+  const onLeave = () => {
+    setHovered(false);
+    vidRef.current?.pause();
+  };
+
+  return (
+    <Link
+      to="/watch/$videoId"
+      params={{ videoId: video.id }}
+      className={`group block ${size === "wide" ? "w-[340px] sm:w-[380px]" : "w-full"} shrink-0`}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+    >
+      <div className="relative aspect-video overflow-hidden rounded-2xl bg-surface ring-1 ring-border transition-all duration-300 group-hover:ring-primary/50 group-hover:scale-[1.02] group-hover:shadow-[var(--shadow-elegant)]">
+        <img
+          src={video.thumbnail}
+          alt={video.title}
+          loading="lazy"
+          width={1024}
+          height={576}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${hovered ? "opacity-0" : "opacity-100"}`}
+        />
+        {video.previewSrc && (
+          <video
+            ref={vidRef}
+            src={video.previewSrc}
+            muted
+            playsInline
+            loop
+            preload="none"
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${hovered ? "opacity-100" : "opacity-0"}`}
+          />
+        )}
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "var(--gradient-card)" }} />
+
+        {/* Top tags */}
+        <div className="absolute top-3 left-3 flex gap-2">
+          <span className="rounded-md bg-background/70 backdrop-blur-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground">
+            {video.category}
+          </span>
+        </div>
+        <div className="absolute top-3 right-3">
+          <span className="rounded-md px-2 py-0.5 text-[10px] font-bold text-primary-foreground" style={{ background: "var(--gradient-brand)" }}>
+            {video.language}
+          </span>
+        </div>
+
+        {/* Duration */}
+        <div className="absolute bottom-3 right-3 rounded-md bg-background/80 backdrop-blur-md px-1.5 py-0.5 text-[11px] font-mono font-medium">
+          {video.duration}
+        </div>
+
+        {/* Hover play button */}
+        <div className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${hovered ? "opacity-100 scale-100" : "opacity-0 scale-90"}`}>
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/95 shadow-[var(--shadow-glow)]">
+            <Play className="h-6 w-6 fill-primary-foreground text-primary-foreground ml-0.5" />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 flex gap-3">
+        <div className="h-9 w-9 shrink-0 rounded-full ring-2 ring-border" style={{ background: "var(--gradient-brand)" }} />
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 text-sm font-semibold text-foreground leading-snug group-hover:text-primary transition-colors">
+            {video.title}
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground truncate">{video.creator}</p>
+          <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+            <Eye className="h-3 w-3" />
+            <span>{video.views} views</span>
+            <span className="mx-1">•</span>
+            <span>{video.uploadedAt}</span>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
