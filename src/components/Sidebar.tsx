@@ -51,13 +51,13 @@ export function AppSidebar() {
 
 export function MobileBottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const mobileItems = [
+  const mobileItems: { to: "/" | "/shorts" | "/upload" | "/music" | "/profile"; label: string; icon: typeof Home; primary?: boolean }[] = [
     { to: "/", label: "Home", icon: Home },
     { to: "/shorts", label: "Shorts", icon: Play },
     { to: "/upload", label: "Upload", icon: Upload, primary: true },
     { to: "/music", label: "Music", icon: Music2 },
     { to: "/profile", label: "Profile", icon: User },
-  ] as const;
+  ];
 
   return (
     <nav className="lg:hidden fixed bottom-0 inset-x-0 z-50 border-t border-border bg-background/90 backdrop-blur-xl px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
