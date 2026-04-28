@@ -29,14 +29,18 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "IBONA – Stream African Videos, Music & Films" },
+      { name: "description", content: "The African-first streaming platform for videos, music, and films. Watch, upload, and explore Agasobanuye and trending content across Africa." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "IBONA – Stream African Videos, Music & Films" },
+      { property: "og:description", content: "The African-first streaming platform for videos, music, and films. Watch, upload, and explore Agasobanuye and trending content across Africa." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "IBONA – Stream African Videos, Music & Films" },
+      { name: "twitter:description", content: "The African-first streaming platform for videos, music, and films. Watch, upload, and explore Agasobanuye and trending content across Africa." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/RZm7FI59fgbiqTq2M1TcARRKFye2/social-images/social-1777395773732-c3f0a703-0aac-47c4-9249-ebd4e1322db3.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/RZm7FI59fgbiqTq2M1TcARRKFye2/social-images/social-1777395773732-c3f0a703-0aac-47c4-9249-ebd4e1322db3.webp" },
     ],
     links: [
       {
