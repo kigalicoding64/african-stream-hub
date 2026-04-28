@@ -53,6 +53,7 @@ export function VideoCard({ video, size = "default" }: Props) {
 
   return (
     <Link
+      ref={containerRef}
       to="/watch/$videoId"
       params={{ videoId: video.id }}
       className={`group block ${size === "wide" ? "w-[340px] sm:w-[380px]" : "w-full"} shrink-0`}
@@ -60,23 +61,26 @@ export function VideoCard({ video, size = "default" }: Props) {
       onMouseLeave={onLeave}
     >
       <div className="relative aspect-video overflow-hidden rounded-2xl bg-surface ring-1 ring-border transition-all duration-300 group-hover:ring-primary/50 group-hover:scale-[1.02] group-hover:shadow-[var(--shadow-elegant)]">
+        {!loaded && <div className="absolute inset-0 animate-pulse bg-surface-elevated" />}
         <img
           src={video.thumbnail}
           alt={video.title}
           loading="lazy"
+          decoding="async"
           width={1024}
           height={576}
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${hovered ? "opacity-0" : "opacity-100"}`}
+          onLoad={() => setLoaded(true)}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${showVideo ? "opacity-0" : "opacity-100"}`}
         />
-        {video.previewSrc && (
+        {video.previewSrc && inView && (
           <video
             ref={vidRef}
             src={video.previewSrc}
             muted
             playsInline
             loop
-            preload="none"
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${hovered ? "opacity-100" : "opacity-0"}`}
+            preload="metadata"
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${showVideo ? "opacity-100" : "opacity-0"}`}
           />
         )}
         {/* Gradient overlay */}
