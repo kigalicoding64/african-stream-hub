@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UploadRouteImport } from './routes/upload'
 import { Route as TrendingRouteImport } from './routes/trending'
+import { Route as StudioRouteImport } from './routes/studio'
 import { Route as ShortsRouteImport } from './routes/shorts'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MusicRouteImport } from './routes/music'
@@ -27,6 +28,11 @@ const UploadRoute = UploadRouteImport.update({
 const TrendingRoute = TrendingRouteImport.update({
   id: '/trending',
   path: '/trending',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudioRoute = StudioRouteImport.update({
+  id: '/studio',
+  path: '/studio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShortsRoute = ShortsRouteImport.update({
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/music': typeof MusicRoute
   '/profile': typeof ProfileRoute
   '/shorts': typeof ShortsRoute
+  '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/music': typeof MusicRoute
   '/profile': typeof ProfileRoute
   '/shorts': typeof ShortsRoute
+  '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/music': typeof MusicRoute
   '/profile': typeof ProfileRoute
   '/shorts': typeof ShortsRoute
+  '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/music'
     | '/profile'
     | '/shorts'
+    | '/studio'
     | '/trending'
     | '/upload'
     | '/watch/$videoId'
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/music'
     | '/profile'
     | '/shorts'
+    | '/studio'
     | '/trending'
     | '/upload'
     | '/watch/$videoId'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/music'
     | '/profile'
     | '/shorts'
+    | '/studio'
     | '/trending'
     | '/upload'
     | '/watch/$videoId'
@@ -142,6 +154,7 @@ export interface RootRouteChildren {
   MusicRoute: typeof MusicRoute
   ProfileRoute: typeof ProfileRoute
   ShortsRoute: typeof ShortsRoute
+  StudioRoute: typeof StudioRoute
   TrendingRoute: typeof TrendingRoute
   UploadRoute: typeof UploadRoute
   WatchVideoIdRoute: typeof WatchVideoIdRoute
@@ -161,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/trending'
       fullPath: '/trending'
       preLoaderRoute: typeof TrendingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/studio': {
+      id: '/studio'
+      path: '/studio'
+      fullPath: '/studio'
+      preLoaderRoute: typeof StudioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shorts': {
@@ -222,6 +242,7 @@ const rootRouteChildren: RootRouteChildren = {
   MusicRoute: MusicRoute,
   ProfileRoute: ProfileRoute,
   ShortsRoute: ShortsRoute,
+  StudioRoute: StudioRoute,
   TrendingRoute: TrendingRoute,
   UploadRoute: UploadRoute,
   WatchVideoIdRoute: WatchVideoIdRoute,
