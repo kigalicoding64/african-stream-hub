@@ -11,10 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UploadRouteImport } from './routes/upload'
 import { Route as TrendingRouteImport } from './routes/trending'
+import { Route as StudioRouteImport } from './routes/studio'
 import { Route as ShortsRouteImport } from './routes/shorts'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MusicRouteImport } from './routes/music'
 import { Route as MoviesRouteImport } from './routes/movies'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchVideoIdRouteImport } from './routes/watch.$videoId'
 
@@ -26,6 +28,11 @@ const UploadRoute = UploadRouteImport.update({
 const TrendingRoute = TrendingRouteImport.update({
   id: '/trending',
   path: '/trending',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudioRoute = StudioRouteImport.update({
+  id: '/studio',
+  path: '/studio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShortsRoute = ShortsRouteImport.update({
@@ -48,6 +55,11 @@ const MoviesRoute = MoviesRouteImport.update({
   path: '/movies',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -61,20 +73,24 @@ const WatchVideoIdRoute = WatchVideoIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/movies': typeof MoviesRoute
   '/music': typeof MusicRoute
   '/profile': typeof ProfileRoute
   '/shorts': typeof ShortsRoute
+  '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/movies': typeof MoviesRoute
   '/music': typeof MusicRoute
   '/profile': typeof ProfileRoute
   '/shorts': typeof ShortsRoute
+  '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
@@ -82,10 +98,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/movies': typeof MoviesRoute
   '/music': typeof MusicRoute
   '/profile': typeof ProfileRoute
   '/shorts': typeof ShortsRoute
+  '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
@@ -94,30 +112,36 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/movies'
     | '/music'
     | '/profile'
     | '/shorts'
+    | '/studio'
     | '/trending'
     | '/upload'
     | '/watch/$videoId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
     | '/movies'
     | '/music'
     | '/profile'
     | '/shorts'
+    | '/studio'
     | '/trending'
     | '/upload'
     | '/watch/$videoId'
   id:
     | '__root__'
     | '/'
+    | '/auth'
     | '/movies'
     | '/music'
     | '/profile'
     | '/shorts'
+    | '/studio'
     | '/trending'
     | '/upload'
     | '/watch/$videoId'
@@ -125,10 +149,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   MoviesRoute: typeof MoviesRoute
   MusicRoute: typeof MusicRoute
   ProfileRoute: typeof ProfileRoute
   ShortsRoute: typeof ShortsRoute
+  StudioRoute: typeof StudioRoute
   TrendingRoute: typeof TrendingRoute
   UploadRoute: typeof UploadRoute
   WatchVideoIdRoute: typeof WatchVideoIdRoute
@@ -148,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/trending'
       fullPath: '/trending'
       preLoaderRoute: typeof TrendingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/studio': {
+      id: '/studio'
+      path: '/studio'
+      fullPath: '/studio'
+      preLoaderRoute: typeof StudioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shorts': {
@@ -178,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MoviesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -197,10 +237,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   MoviesRoute: MoviesRoute,
   MusicRoute: MusicRoute,
   ProfileRoute: ProfileRoute,
   ShortsRoute: ShortsRoute,
+  StudioRoute: StudioRoute,
   TrendingRoute: TrendingRoute,
   UploadRoute: UploadRoute,
   WatchVideoIdRoute: WatchVideoIdRoute,
@@ -208,12 +250,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

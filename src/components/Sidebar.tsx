@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Flame, Music2, Film, TrendingUp, Upload, User, Play } from "lucide-react";
+import { Home, Music2, Film, TrendingUp, Upload, User, Play, LayoutDashboard } from "lucide-react";
 import { IbonaLogo } from "./IbonaLogo";
 
 const items = [
@@ -9,6 +9,7 @@ const items = [
   { to: "/movies", label: "Movies", icon: Film },
   { to: "/trending", label: "Trending", icon: TrendingUp },
   { to: "/upload", label: "Upload", icon: Upload },
+  { to: "/studio", label: "Creator Studio", icon: LayoutDashboard },
   { to: "/profile", label: "Profile", icon: User },
 ] as const;
 
@@ -51,11 +52,11 @@ export function AppSidebar() {
 
 export function MobileBottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const mobileItems: { to: "/" | "/shorts" | "/upload" | "/music" | "/profile"; label: string; icon: typeof Home; primary?: boolean }[] = [
+  const mobileItems: { to: "/" | "/shorts" | "/upload" | "/studio" | "/profile"; label: string; icon: typeof Home; primary?: boolean }[] = [
     { to: "/", label: "Home", icon: Home },
     { to: "/shorts", label: "Shorts", icon: Play },
     { to: "/upload", label: "Upload", icon: Upload, primary: true },
-    { to: "/music", label: "Music", icon: Music2 },
+    { to: "/studio", label: "Studio", icon: LayoutDashboard },
     { to: "/profile", label: "Profile", icon: User },
   ];
 

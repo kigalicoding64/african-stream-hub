@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Eye, Play } from "lucide-react";
 import type { Video } from "@/data/videos";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface Props {
   video: Video;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function VideoCard({ video, size = "default" }: Props) {
+  const { shouldReducePreviews } = useSettings();
   const [hovered, setHovered] = useState(false);
   const [inView, setInView] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -23,22 +25,21 @@ export function VideoCard({ video, size = "default" }: Props) {
       ([entry]) => {
         const visible = entry.isIntersecting && entry.intersectionRatio > 0.6;
         setInView(visible);
+        if (shouldReducePreviews) return; // never autoplay in low-data
         const v = vidRef.current;
         if (!v) return;
-        if (visible) {
-          v.play().catch(() => {});
-        } else {
-          v.pause();
-        }
+        if (visible) v.play().catch(() => {});
+        else v.pause();
       },
       { threshold: [0, 0.6, 1] }
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, []);
+  }, [shouldReducePreviews]);
 
   const onEnter = () => {
     setHovered(true);
+    if (shouldReducePreviews) return;
     const v = vidRef.current;
     if (v) {
       v.currentTime = 0;
@@ -47,9 +48,11 @@ export function VideoCard({ video, size = "default" }: Props) {
   };
   const onLeave = () => {
     setHovered(false);
-    if (!inView) vidRef.current?.pause();
+    if (!inView || shouldReducePreviews) vidRef.current?.pause();
   };
-  const showVideo = hovered || inView;
+  const showVideo = !shouldReducePreviews && (hovered || inView);
+  // In low-data mode, do not even mount the <video> element
+  const mountVideo = !shouldReducePreviews && !!video.previewSrc && inView;
 
   return (
     <Link
@@ -72,7 +75,7 @@ export function VideoCard({ video, size = "default" }: Props) {
           onLoad={() => setLoaded(true)}
           className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${showVideo ? "opacity-0" : "opacity-100"}`}
         />
-        {video.previewSrc && inView && (
+        {mountVideo && (
           <video
             ref={vidRef}
             src={video.previewSrc}
@@ -112,7 +115,7 @@ export function VideoCard({ video, size = "default" }: Props) {
       </div>
 
       <div className="mt-3 flex gap-3">
-        <div className="h-9 w-9 shrink-0 rounded-full ring-2 ring-border" style={{ background: "var(--gradient-brand)" }} />
+        <div className="h-9 w-9 shrink-0 rounded-full ring-2 ring-border bg-cover bg-center" style={video.creatorAvatar ? { backgroundImage: `url(${video.creatorAvatar})` } : { background: "var(--gradient-brand)" }} />
         <div className="min-w-0 flex-1">
           <h3 className="line-clamp-2 text-sm font-semibold text-foreground leading-snug group-hover:text-primary transition-colors">
             {video.title}
