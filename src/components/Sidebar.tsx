@@ -52,11 +52,11 @@ export function AppSidebar() {
 
 export function MobileBottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const mobileItems: { to: "/" | "/shorts" | "/upload" | "/music" | "/profile"; label: string; icon: typeof Home; primary?: boolean }[] = [
+  const mobileItems: { to: "/" | "/shorts" | "/upload" | "/studio" | "/profile"; label: string; icon: typeof Home; primary?: boolean }[] = [
     { to: "/", label: "Home", icon: Home },
     { to: "/shorts", label: "Shorts", icon: Play },
     { to: "/upload", label: "Upload", icon: Upload, primary: true },
-    { to: "/music", label: "Music", icon: Music2 },
+    { to: "/studio", label: "Studio", icon: LayoutDashboard },
     { to: "/profile", label: "Profile", icon: User },
   ];
 
