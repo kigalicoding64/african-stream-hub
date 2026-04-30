@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Heart,
   MessageCircle,
@@ -8,32 +8,41 @@ import {
   X,
   Check,
   Volume2,
+  VolumeX,
   Maximize2,
   Pause,
   Play,
   Send,
   Subtitles,
+  Pencil,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { VideoCard } from "@/components/VideoCard";
-import { getVideoById, videos, type Language } from "@/data/videos";
+import { getVideoById, videos as mockVideos, type Language, type Video } from "@/data/videos";
+import { fetchVideoById, fetchAllFeed, incrementVideoView } from "@/lib/videos-api";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSettings } from "@/contexts/SettingsContext";
+import { loadPrefs, savePrefs } from "@/lib/playback-prefs";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/watch/$videoId")({
   loader: ({ params }) => {
+    // Initial loader returns mock if available; live data loaded client-side.
     const video = getVideoById(params.videoId);
-    if (!video) throw notFound();
-    return { video };
+    return { initialVideo: video ?? null, videoId: params.videoId };
   },
   head: ({ loaderData }) => ({
-    meta: loaderData
+    meta: loaderData?.initialVideo
       ? [
-          { title: `${loaderData.video.title} — IBONA` },
-          { name: "description", content: loaderData.video.description },
-          { property: "og:title", content: loaderData.video.title },
-          { property: "og:description", content: loaderData.video.description },
-          { property: "og:image", content: loaderData.video.thumbnail },
+          { title: `${loaderData.initialVideo.title} — IBONA` },
+          { name: "description", content: loaderData.initialVideo.description },
+          { property: "og:title", content: loaderData.initialVideo.title },
+          { property: "og:image", content: loaderData.initialVideo.thumbnail },
         ]
-      : [],
+      : [{ title: "Watch — IBONA" }],
   }),
   errorComponent: ({ error }) => (
     <AppLayout>
@@ -44,91 +53,333 @@ export const Route = createFileRoute("/watch/$videoId")({
     <AppLayout>
       <div className="py-20 text-center">
         <h2 className="text-2xl font-bold mb-2">Video not found</h2>
-        <Link to="/" className="text-primary underline">
-          Back home
-        </Link>
+        <Link to="/" className="text-primary underline">Back home</Link>
       </div>
     </AppLayout>
   ),
   component: WatchPage,
 });
 
-interface Comment {
-  id: string;
-  user: string;
-  text: string;
-  time: string;
-}
-
-const SAMPLE_COMMENTS: Comment[] = [
-  { id: "c1", user: "Aline K.", text: "This is fire 🔥 Murakoze cyane!", time: "2h" },
-  { id: "c2", user: "Eric M.", text: "Agasobanuye mode ni nziza pe.", time: "5h" },
-  { id: "c3", user: "Diane U.", text: "Quality is amazing on slow internet.", time: "1d" },
-];
-
-const SUBTITLE_LINES: Record<Language, string> = {
-  Kinyarwanda: "Murakaza neza kuri IBONA — reba ibikorwa bisobanutse mu Kinyarwanda.",
-  Swahili: "Karibu IBONA — tazama maudhui yako kwa Kiswahili.",
-  English: "Welcome to IBONA — watch your stories, your way.",
+const ALL_LANGS: Language[] = ["Kinyarwanda", "Swahili", "English"];
+const VTT_BY_LANG: Record<Language, string> = {
+  Kinyarwanda: "/subtitles/v1.rw.vtt",
+  Swahili: "/subtitles/v1.sw.vtt",
+  English: "/subtitles/v1.en.vtt",
+};
+const LANG_CODE: Record<Language, string> = {
+  Kinyarwanda: "rw",
+  Swahili: "sw",
+  English: "en",
 };
 
+interface DbComment {
+  id: string;
+  user_id: string;
+  video_id: string;
+  body: string;
+  created_at: string;
+  edited: boolean;
+  profiles?: { display_name: string | null; username: string | null; avatar_url: string | null } | null;
+}
+
+function relTime(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return "now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
+  return `${Math.floor(diff / 604800)}w`;
+}
+
+const isUuid = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
+
 function WatchPage() {
-  const { video } = Route.useLoaderData();
+  const { initialVideo, videoId } = Route.useLoaderData();
+  const { user, profile } = useAuth();
+  const { shouldReducePreviews } = useSettings();
+
+  const [video, setVideo] = useState<Video | null>(initialVideo);
+  const [loadingVideo, setLoadingVideo] = useState(!initialVideo);
+  const [suggestions, setSuggestions] = useState<Video[]>(
+    mockVideos.filter((v) => v.id !== videoId).slice(0, 6)
+  );
+
+  // UI state
   const [liked, setLiked] = useState(false);
-  const [agaMode, setAgaMode] = useState(false);
-  const [language, setLanguage] = useState<Language>(video.language);
-  const [showAgaPanel, setShowAgaPanel] = useState(false);
+  const [language, setLanguage] = useState<Language>(initialVideo?.language ?? "Kinyarwanda");
+  const [subsOn, setSubsOn] = useState(false);
   const [showSubMenu, setShowSubMenu] = useState(false);
+  const [showAgaPanel, setShowAgaPanel] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [playing, setPlaying] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [showMini, setShowMini] = useState(false);
-  const [comments, setComments] = useState<Comment[]>(SAMPLE_COMMENTS);
+
+  // Comments
+  const [comments, setComments] = useState<DbComment[]>([]);
   const [draft, setDraft] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [posting, setPosting] = useState(false);
 
   const playerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const miniRef = useRef<HTMLVideoElement>(null);
+  const restoredRef = useRef(false);
+  const lastSavedRef = useRef(0);
 
-  // Floating mini-player on scroll
+  // ── Fetch real video + suggestions ─────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (isUuid(videoId)) {
+        const v = await fetchVideoById(videoId);
+        if (!cancelled && v) {
+          setVideo(v);
+          setLanguage(v.language);
+        } else if (!cancelled && !initialVideo) {
+          throw notFound();
+        }
+      }
+      if (!cancelled) setLoadingVideo(false);
+      const all = await fetchAllFeed();
+      if (!cancelled) setSuggestions(all.filter((v) => v.id !== videoId).slice(0, 6));
+    })();
+    incrementVideoView(videoId);
+    return () => { cancelled = true; };
+  }, [videoId, initialVideo]);
+
+  // ── Restore prefs from localStorage ────────────────────────────────────────
+  useEffect(() => {
+    const prefs = loadPrefs(videoId);
+    if (prefs.muted !== undefined) setMuted(prefs.muted);
+    if (prefs.subtitlesOn !== undefined) setSubsOn(prefs.subtitlesOn);
+    if (prefs.subtitleLang && (ALL_LANGS as string[]).includes(prefs.subtitleLang)) {
+      setLanguage(prefs.subtitleLang as Language);
+    }
+  }, [videoId]);
+
+  // ── Restore server-side progress when authed ───────────────────────────────
+  useEffect(() => {
+    if (!user || !isUuid(videoId)) return;
+    supabase
+      .from("video_progress")
+      .select("position_seconds, muted, subtitle_lang")
+      .eq("user_id", user.id)
+      .eq("video_id", videoId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        if (typeof data.muted === "boolean") setMuted(data.muted);
+        if (data.subtitle_lang && (ALL_LANGS as string[]).includes(data.subtitle_lang)) {
+          setLanguage(data.subtitle_lang as Language);
+        }
+        const v = videoRef.current;
+        if (v && data.position_seconds && data.position_seconds > 1) {
+          v.currentTime = data.position_seconds;
+        }
+      });
+  }, [user, videoId]);
+
+  // ── Apply muted to <video> ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = muted;
+    if (miniRef.current) miniRef.current.muted = muted;
+  }, [muted]);
+
+  // ── Switch active text track without reloading the video ──────────────────
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const tracks = v.textTracks;
+    for (let i = 0; i < tracks.length; i++) {
+      const t = tracks[i];
+      if (!subsOn) {
+        t.mode = "disabled";
+      } else {
+        t.mode = t.language === LANG_CODE[language] ? "showing" : "disabled";
+      }
+    }
+  }, [language, subsOn, video]);
+
+  // ── Mini player on scroll ──────────────────────────────────────────────────
   useEffect(() => {
     const el = playerRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(([e]) => setShowMini(!e.isIntersecting), { threshold: 0.2 });
     obs.observe(el);
     return () => obs.disconnect();
+  }, [video]);
+
+  // ── Restore position from localStorage once metadata is ready ─────────────
+  const handleLoadedMeta = () => {
+    if (restoredRef.current) return;
+    const v = videoRef.current;
+    if (!v) return;
+    const prefs = loadPrefs(videoId);
+    if (prefs.position && prefs.position > 1 && prefs.position < (v.duration || Infinity) - 2) {
+      v.currentTime = prefs.position;
+    }
+    restoredRef.current = true;
+  };
+
+  // ── Persist position (throttled), muted, subtitle lang ────────────────────
+  const persistProgress = useCallback(
+    (pos: number) => {
+      savePrefs(videoId, { position: pos, muted, subtitlesOn: subsOn, subtitleLang: language });
+      const now = Date.now();
+      if (user && isUuid(videoId) && now - lastSavedRef.current > 5000) {
+        lastSavedRef.current = now;
+        supabase.from("video_progress").upsert(
+          {
+            user_id: user.id,
+            video_id: videoId,
+            position_seconds: pos,
+            muted,
+            subtitle_lang: subsOn ? language : null,
+          },
+          { onConflict: "user_id,video_id" }
+        ).then(() => {});
+      }
+    },
+    [user, videoId, muted, subsOn, language]
+  );
+
+  const handleTimeUpdate = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    persistProgress(v.currentTime);
+  };
+
+  // Save prefs immediately when language/mute/subs change
+  useEffect(() => {
+    savePrefs(videoId, { muted, subtitlesOn: subsOn, subtitleLang: language });
+  }, [videoId, muted, subsOn, language]);
+
+  // ── Comments: fetch + realtime ─────────────────────────────────────────────
+  const loadComments = useCallback(async () => {
+    if (!isUuid(videoId)) {
+      setComments([]);
+      return;
+    }
+    const { data } = await supabase
+      .from("comments")
+      .select("id, user_id, video_id, body, created_at, edited, profiles(display_name, username, avatar_url)")
+      .eq("video_id", videoId)
+      .order("created_at", { ascending: false });
+    setComments((data as unknown as DbComment[]) ?? []);
+  }, [videoId]);
+
+  useEffect(() => {
+    loadComments();
+    if (!isUuid(videoId)) return;
+    const ch = supabase
+      .channel(`comments-${videoId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "comments", filter: `video_id=eq.${videoId}` },
+        () => loadComments()
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [videoId, loadComments]);
+
+  const submitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!draft.trim()) return;
+    if (!user) {
+      toast.error("Sign in to comment");
+      return;
+    }
+    if (!isUuid(videoId)) {
+      toast.error("Comments are only available on uploaded videos");
+      return;
+    }
+    setPosting(true);
+    const body = draft.trim().slice(0, 1000); // basic length cap
+    const { error } = await supabase.from("comments").insert({
+      user_id: user.id,
+      video_id: videoId,
+      body,
+    });
+    setPosting(false);
+    if (error) {
+      toast.error("Couldn't post comment");
+      return;
+    }
+    setDraft("");
+    loadComments();
+  };
+
+  const startEdit = (c: DbComment) => {
+    setEditingId(c.id);
+    setEditDraft(c.body);
+  };
+
+  const saveEdit = async (id: string) => {
+    const body = editDraft.trim().slice(0, 1000);
+    if (!body) return;
+    const { error } = await supabase.from("comments").update({ body }).eq("id", id);
+    if (error) {
+      toast.error("Couldn't save edit");
+      return;
+    }
+    setEditingId(null);
+    setEditDraft("");
+    loadComments();
+  };
+
+  const deleteComment = async (id: string) => {
+    if (!confirm("Delete this comment?")) return;
+    const { error } = await supabase.from("comments").delete().eq("id", id);
+    if (error) {
+      toast.error("Couldn't delete");
+      return;
+    }
+    loadComments();
+  };
+
+  const isOwnComment = (c: DbComment) => user?.id === c.user_id;
+  const isVideoOwner = useMemo(() => {
+    // Best-effort moderation flag — owner can delete others' comments via RLS.
+    return false;
   }, []);
 
+  // ── Player controls ────────────────────────────────────────────────────────
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
-    if (v.paused) {
-      v.play();
-      setPlaying(true);
-    } else {
-      v.pause();
-      setPlaying(false);
-    }
+    if (v.paused) { v.play(); setPlaying(true); } else { v.pause(); setPlaying(false); }
   };
-
   const toggleMini = () => {
     const v = miniRef.current;
     if (!v) return;
-    if (v.paused) v.play();
-    else v.pause();
+    if (v.paused) v.play(); else v.pause();
     setPlaying(!v.paused);
   };
+  const toggleMute = () => setMuted((m) => !m);
 
-  const submitComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!draft.trim()) return;
-    setComments((p) => [
-      { id: `c-${Date.now()}`, user: "You", text: draft.trim(), time: "now" },
-      ...p,
-    ]);
-    setDraft("");
-  };
+  if (loadingVideo) {
+    return (
+      <AppLayout>
+        <div className="py-20 flex items-center justify-center text-muted-foreground gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading video…
+        </div>
+      </AppLayout>
+    );
+  }
+  if (!video) {
+    return (
+      <AppLayout>
+        <div className="py-20 text-center">
+          <h2 className="text-2xl font-bold mb-2">Video not found</h2>
+          <Link to="/" className="text-primary underline">Back home</Link>
+        </div>
+      </AppLayout>
+    );
+  }
 
-  const suggestions = videos.filter((v) => v.id !== video.id).slice(0, 6);
+  const preload = shouldReducePreviews ? "metadata" : "auto";
 
   return (
     <AppLayout>
@@ -143,15 +394,31 @@ function WatchPage() {
               ref={videoRef}
               src={video.previewSrc}
               poster={video.thumbnail}
-              autoPlay
+              autoPlay={!shouldReducePreviews}
               loop
               playsInline
+              preload={preload}
+              crossOrigin="anonymous"
               className="h-full w-full object-cover"
               onClick={togglePlay}
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
-            />
-            {/* Overlay controls */}
+              onLoadedMetadata={handleLoadedMeta}
+              onTimeUpdate={handleTimeUpdate}
+              onVolumeChange={(e) => setMuted((e.target as HTMLVideoElement).muted)}
+            >
+              {ALL_LANGS.map((l) => (
+                <track
+                  key={l}
+                  kind="subtitles"
+                  src={VTT_BY_LANG[l]}
+                  srcLang={LANG_CODE[l]}
+                  label={l}
+                  default={l === language && subsOn}
+                />
+              ))}
+            </video>
+
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/70 via-transparent to-black/30 opacity-0 group-hover:opacity-100 transition-opacity" />
 
             <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition">
@@ -172,15 +439,17 @@ function WatchPage() {
                 <div className="h-full w-1/3" style={{ background: "var(--gradient-brand)" }} />
               </div>
 
-              {/* In-player subtitle / language switcher */}
+              {/* Polished subtitle / language switcher */}
               <div className="relative">
                 <button
                   onClick={() => setShowSubMenu((p) => !p)}
-                  className={`h-9 px-3 rounded-full flex items-center gap-1.5 text-xs font-semibold backdrop-blur transition ${agaMode ? "bg-primary text-primary-foreground" : "bg-white/10 text-white hover:bg-white/20"}`}
+                  className={`h-9 px-3 rounded-full flex items-center gap-1.5 text-xs font-semibold backdrop-blur transition ${
+                    subsOn ? "bg-primary text-primary-foreground" : "bg-white/10 text-white hover:bg-white/20"
+                  }`}
                   aria-label="Subtitles & language"
                 >
                   <Subtitles className="h-4 w-4" />
-                  <span className="hidden sm:inline">{language.slice(0, 3).toUpperCase()}</span>
+                  <span className="hidden sm:inline">{LANG_CODE[language].toUpperCase()}</span>
                 </button>
                 {showSubMenu && (
                   <div
@@ -190,18 +459,20 @@ function WatchPage() {
                     <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-primary">
                       Agasobanuye Mode
                     </div>
-                    {(["Kinyarwanda", "Swahili", "English"] as Language[]).map((l) => (
+                    {ALL_LANGS.map((l) => (
                       <button
                         key={l}
                         onClick={() => {
                           setLanguage(l);
-                          setAgaMode(true);
+                          setSubsOn(true);
                           setShowSubMenu(false);
                         }}
-                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${language === l && agaMode ? "bg-primary/15 text-primary" : "hover:bg-surface-elevated"}`}
+                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
+                          language === l && subsOn ? "bg-primary/15 text-primary" : "hover:bg-surface-elevated"
+                        }`}
                       >
                         <span className="font-semibold">{l}</span>
-                        {language === l && agaMode && <Check className="h-4 w-4" />}
+                        {language === l && subsOn && <Check className="h-4 w-4" />}
                       </button>
                     ))}
                     <div className="mt-1 border-t border-border pt-1">
@@ -209,8 +480,8 @@ function WatchPage() {
                         <span>Show subtitles</span>
                         <input
                           type="checkbox"
-                          checked={agaMode}
-                          onChange={(e) => setAgaMode(e.target.checked)}
+                          checked={subsOn}
+                          onChange={(e) => setSubsOn(e.target.checked)}
                           className="h-4 w-4 accent-[oklch(0.78_0.16_60)]"
                         />
                       </label>
@@ -220,12 +491,14 @@ function WatchPage() {
               </div>
 
               <button
+                onClick={toggleMute}
                 className="h-9 w-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center hover:bg-white/20 transition"
-                aria-label="Volume"
+                aria-label={muted ? "Unmute" : "Mute"}
               >
-                <Volume2 className="h-4 w-4" />
+                {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
               </button>
               <button
+                onClick={() => videoRef.current?.requestFullscreen?.()}
                 className="h-9 w-9 rounded-full bg-white/10 backdrop-blur flex items-center justify-center hover:bg-white/20 transition"
                 aria-label="Fullscreen"
               >
@@ -233,15 +506,7 @@ function WatchPage() {
               </button>
             </div>
 
-            {/* Subtitle line */}
-            {agaMode && (
-              <div className="absolute bottom-20 left-1/2 -translate-x-1/2 max-w-[80%] rounded-lg bg-black/75 backdrop-blur px-4 py-2 text-center text-sm sm:text-base font-medium pointer-events-none">
-                <span className="text-primary text-xs uppercase tracking-wider mr-2">{language.slice(0, 3)}</span>
-                {SUBTITLE_LINES[language]}
-              </div>
-            )}
-
-            {/* Comments overlay panel (slides over player) */}
+            {/* Comments overlay panel */}
             {showComments && (
               <div className="absolute inset-y-0 right-0 w-full sm:w-[360px] bg-background/95 backdrop-blur-xl border-l border-border flex flex-col animate-slide-in-right z-20">
                 <div className="flex items-center justify-between p-4 border-b border-border">
@@ -258,39 +523,113 @@ function WatchPage() {
                   </button>
                 </div>
                 <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-                  {comments.map((c) => (
-                    <div key={c.id} className="flex gap-3">
-                      <div
-                        className="h-8 w-8 shrink-0 rounded-full ring-2 ring-border"
-                        style={{ background: "var(--gradient-brand)" }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-sm font-semibold truncate">{c.user}</span>
-                          <span className="text-[10px] text-muted-foreground">{c.time}</span>
-                        </div>
-                        <p className="text-sm text-foreground/90 break-words">{c.text}</p>
-                      </div>
+                  {comments.length === 0 && (
+                    <div className="text-sm text-muted-foreground text-center py-8">
+                      {isUuid(videoId) ? "Be the first to comment." : "Comments are available on uploaded videos."}
                     </div>
-                  ))}
+                  )}
+                  {comments.map((c) => {
+                    const name = c.profiles?.display_name || c.profiles?.username || "User";
+                    const own = isOwnComment(c);
+                    const editing = editingId === c.id;
+                    return (
+                      <div key={c.id} className="flex gap-3 group/comment">
+                        <div
+                          className="h-8 w-8 shrink-0 rounded-full ring-2 ring-border bg-cover bg-center"
+                          style={
+                            c.profiles?.avatar_url
+                              ? { backgroundImage: `url(${c.profiles.avatar_url})` }
+                              : { background: "var(--gradient-brand)" }
+                          }
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-sm font-semibold truncate">{name}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {relTime(c.created_at)}{c.edited ? " • edited" : ""}
+                            </span>
+                          </div>
+                          {editing ? (
+                            <div className="mt-1 flex flex-col gap-1.5">
+                              <textarea
+                                value={editDraft}
+                                onChange={(e) => setEditDraft(e.target.value)}
+                                rows={2}
+                                className="w-full rounded-md bg-surface border border-border px-2 py-1.5 text-sm focus:outline-none focus:border-primary"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => saveEdit(c.id)}
+                                  className="rounded-full px-3 py-1 text-xs font-bold text-primary-foreground"
+                                  style={{ background: "var(--gradient-brand)" }}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => { setEditingId(null); setEditDraft(""); }}
+                                  className="rounded-full px-3 py-1 text-xs font-semibold border border-border hover:bg-surface-elevated"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-foreground/90 break-words">{c.body}</p>
+                          )}
+                          {(own || isVideoOwner) && !editing && (
+                            <div className="mt-1 flex gap-2 opacity-0 group-hover/comment:opacity-100 transition">
+                              {own && (
+                                <button
+                                  onClick={() => startEdit(c)}
+                                  className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                                >
+                                  <Pencil className="h-3 w-3" /> Edit
+                                </button>
+                              )}
+                              <button
+                                onClick={() => deleteComment(c.id)}
+                                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="h-3 w-3" /> Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <form onSubmit={submitComment} className="p-3 border-t border-border flex gap-2">
-                  <input
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    placeholder="Add a comment…"
-                    className="flex-1 rounded-full bg-surface border border-border px-4 py-2 text-sm focus:outline-none focus:border-primary"
-                  />
-                  <button
-                    type="submit"
-                    className="h-10 w-10 rounded-full text-primary-foreground flex items-center justify-center disabled:opacity-50"
-                    style={{ background: "var(--gradient-brand)" }}
-                    disabled={!draft.trim()}
-                    aria-label="Post comment"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
-                </form>
+                {user ? (
+                  <form onSubmit={submitComment} className="p-3 border-t border-border flex gap-2">
+                    <input
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      placeholder={isUuid(videoId) ? `Comment as ${profile?.display_name || profile?.username || "you"}…` : "Comments only on uploaded videos"}
+                      maxLength={1000}
+                      disabled={!isUuid(videoId) || posting}
+                      className="flex-1 rounded-full bg-surface border border-border px-4 py-2 text-sm focus:outline-none focus:border-primary disabled:opacity-50"
+                    />
+                    <button
+                      type="submit"
+                      className="h-10 w-10 rounded-full text-primary-foreground flex items-center justify-center disabled:opacity-50"
+                      style={{ background: "var(--gradient-brand)" }}
+                      disabled={!draft.trim() || posting || !isUuid(videoId)}
+                      aria-label="Post comment"
+                    >
+                      {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </button>
+                  </form>
+                ) : (
+                  <div className="p-3 border-t border-border text-center text-sm">
+                    <Link
+                      to="/auth"
+                      search={{ redirect: `/watch/${videoId}`, mode: "login" }}
+                      className="font-bold text-primary hover:underline"
+                    >
+                      Sign in to comment
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -308,12 +647,16 @@ function WatchPage() {
             <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div
-                  className="h-11 w-11 rounded-full ring-2 ring-primary/40"
-                  style={{ background: "var(--gradient-brand)" }}
+                  className="h-11 w-11 rounded-full ring-2 ring-primary/40 bg-cover bg-center"
+                  style={
+                    video.creatorAvatar
+                      ? { backgroundImage: `url(${video.creatorAvatar})` }
+                      : { background: "var(--gradient-brand)" }
+                  }
                 />
                 <div>
                   <div className="font-semibold">{video.creator}</div>
-                  <div className="text-xs text-muted-foreground">142K subscribers</div>
+                  <div className="text-xs text-muted-foreground">Creator</div>
                 </div>
                 <button
                   className="ml-2 rounded-full px-4 py-2 text-sm font-bold text-primary-foreground"
@@ -342,7 +685,6 @@ function WatchPage() {
               </div>
             </div>
 
-            {/* Agasobanuye Mode CTA */}
             <button
               onClick={() => setShowAgaPanel(true)}
               className="mt-5 group relative w-full overflow-hidden rounded-2xl border border-secondary/40 p-5 text-left transition hover:border-secondary"
@@ -368,24 +710,19 @@ function WatchPage() {
               </div>
             </button>
 
-            {/* Description */}
             <div className="mt-5 rounded-2xl bg-surface border border-border p-4">
               <p className="text-sm text-foreground/90 whitespace-pre-line">{video.description}</p>
             </div>
           </div>
 
-          {/* Mobile suggestions */}
           <div className="lg:hidden mt-8">
             <h3 className="font-bold mb-4">Up next</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              {suggestions.map((v) => (
-                <VideoCard key={v.id} video={v} />
-              ))}
+              {suggestions.map((v) => <VideoCard key={v.id} video={v} />)}
             </div>
           </div>
         </div>
 
-        {/* Desktop suggestions sidebar */}
         <aside className="hidden lg:block">
           <h3 className="font-bold mb-4">Up next</h3>
           <div className="space-y-4">
@@ -429,10 +766,11 @@ function WatchPage() {
               ref={miniRef}
               src={video.previewSrc}
               poster={video.thumbnail}
-              autoPlay
+              autoPlay={!shouldReducePreviews}
               loop
               muted
               playsInline
+              preload={preload}
               className="h-full w-full object-cover"
               onClick={toggleMini}
             />
@@ -454,13 +792,6 @@ function WatchPage() {
             </button>
           </div>
           <div className="p-2.5 bg-surface flex items-center gap-2">
-            <button
-              onClick={toggleMini}
-              className="h-8 w-8 rounded-full bg-primary/15 text-primary flex items-center justify-center hover:bg-primary/25 transition shrink-0"
-              aria-label={playing ? "Pause" : "Play"}
-            >
-              {playing ? <Pause className="h-3.5 w-3.5 fill-current" /> : <Play className="h-3.5 w-3.5 fill-current ml-0.5" />}
-            </button>
             <div className="min-w-0">
               <div className="text-xs font-semibold line-clamp-1">{video.title}</div>
               <div className="text-[10px] text-muted-foreground">{video.creator}</div>
@@ -493,12 +824,12 @@ function WatchPage() {
               </button>
             </div>
             <div className="space-y-2">
-              {(["Kinyarwanda", "Swahili", "English"] as Language[]).map((l) => (
+              {ALL_LANGS.map((l) => (
                 <button
                   key={l}
                   onClick={() => {
                     setLanguage(l);
-                    setAgaMode(true);
+                    setSubsOn(true);
                     setShowAgaPanel(false);
                   }}
                   className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition ${language === l ? "border-primary bg-primary/10" : "border-border bg-background hover:bg-surface-elevated"}`}
@@ -517,8 +848,8 @@ function WatchPage() {
               <span className="text-sm font-semibold">Show subtitles</span>
               <input
                 type="checkbox"
-                checked={agaMode}
-                onChange={(e) => setAgaMode(e.target.checked)}
+                checked={subsOn}
+                onChange={(e) => setSubsOn(e.target.checked)}
                 className="h-5 w-5 accent-[oklch(0.78_0.16_60)]"
               />
             </label>
