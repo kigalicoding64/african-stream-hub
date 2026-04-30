@@ -49,6 +49,8 @@ export function dbToVideo(v: DbVideo): Video {
     id: v.id,
     title: v.title,
     creator,
+    creatorId: v.owner_id,
+    creatorUsername: v.profiles?.username ?? undefined,
     creatorAvatar: v.profiles?.avatar_url ?? undefined,
     thumbnail: v.thumbnail_url || FALLBACK_THUMB,
     previewSrc: v.video_url,
