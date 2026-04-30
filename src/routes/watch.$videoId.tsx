@@ -439,16 +439,29 @@ function WatchPage() {
                 <div className="h-full w-1/3" style={{ background: "var(--gradient-brand)" }} />
               </div>
 
-              {/* Polished subtitle / language switcher */}
+              {/* Subtitles On/Off + language switcher */}
+              <button
+                onClick={() => setSubsOn((p) => !p)}
+                title={subsOn ? "Subtitles on — click to turn off" : "Subtitles off — click to turn on"}
+                aria-pressed={subsOn}
+                aria-label={subsOn ? "Turn subtitles off" : "Turn subtitles on"}
+                className={`h-9 px-3 rounded-full flex items-center gap-1.5 text-xs font-bold backdrop-blur transition ${
+                  subsOn ? "bg-primary text-primary-foreground shadow-[var(--shadow-glow)]" : "bg-white/10 text-white hover:bg-white/20"
+                }`}
+              >
+                <Subtitles className="h-4 w-4" />
+                <span>CC {subsOn ? "On" : "Off"}</span>
+              </button>
+
               <div className="relative">
                 <button
                   onClick={() => setShowSubMenu((p) => !p)}
-                  className={`h-9 px-3 rounded-full flex items-center gap-1.5 text-xs font-semibold backdrop-blur transition ${
-                    subsOn ? "bg-primary text-primary-foreground" : "bg-white/10 text-white hover:bg-white/20"
-                  }`}
-                  aria-label="Subtitles & language"
+                  className="h-9 px-3 rounded-full flex items-center gap-1.5 text-xs font-semibold bg-white/10 text-white hover:bg-white/20 backdrop-blur transition"
+                  aria-label="Choose subtitle language"
+                  aria-haspopup="menu"
+                  aria-expanded={showSubMenu}
                 >
-                  <Subtitles className="h-4 w-4" />
+                  <Languages className="h-4 w-4" />
                   <span className="hidden sm:inline">{LANG_CODE[language].toUpperCase()}</span>
                 </button>
                 {showSubMenu && (
@@ -457,7 +470,7 @@ function WatchPage() {
                     onMouseLeave={() => setShowSubMenu(false)}
                   >
                     <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-primary">
-                      Agasobanuye Mode
+                      Subtitle language
                     </div>
                     {ALL_LANGS.map((l) => (
                       <button
@@ -476,15 +489,13 @@ function WatchPage() {
                       </button>
                     ))}
                     <div className="mt-1 border-t border-border pt-1">
-                      <label className="flex items-center justify-between rounded-lg px-3 py-2 text-sm cursor-pointer hover:bg-surface-elevated">
-                        <span>Show subtitles</span>
-                        <input
-                          type="checkbox"
-                          checked={subsOn}
-                          onChange={(e) => setSubsOn(e.target.checked)}
-                          className="h-4 w-4 accent-[oklch(0.78_0.16_60)]"
-                        />
-                      </label>
+                      <button
+                        onClick={() => { setSubsOn(false); setShowSubMenu(false); }}
+                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-surface-elevated"
+                      >
+                        <span className="font-semibold">Turn subtitles off</span>
+                        {!subsOn && <Check className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
                 )}
