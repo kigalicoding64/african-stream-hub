@@ -19,6 +19,7 @@ import { Route as MoviesRouteImport } from './routes/movies'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchVideoIdRouteImport } from './routes/watch.$videoId'
+import { Route as CUsernameRouteImport } from './routes/c.$username'
 
 const UploadRoute = UploadRouteImport.update({
   id: '/upload',
@@ -70,6 +71,11 @@ const WatchVideoIdRoute = WatchVideoIdRouteImport.update({
   path: '/watch/$videoId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CUsernameRoute = CUsernameRouteImport.update({
+  id: '/c/$username',
+  path: '/c/$username',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
+  '/c/$username': typeof CUsernameRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
 }
 export interface FileRoutesByTo {
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
+  '/c/$username': typeof CUsernameRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
 }
 export interface FileRoutesById {
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
+  '/c/$username': typeof CUsernameRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
 }
 export interface FileRouteTypes {
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/trending'
     | '/upload'
+    | '/c/$username'
     | '/watch/$videoId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/trending'
     | '/upload'
+    | '/c/$username'
     | '/watch/$videoId'
   id:
     | '__root__'
@@ -144,6 +155,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/trending'
     | '/upload'
+    | '/c/$username'
     | '/watch/$videoId'
   fileRoutesById: FileRoutesById
 }
@@ -157,6 +169,7 @@ export interface RootRouteChildren {
   StudioRoute: typeof StudioRoute
   TrendingRoute: typeof TrendingRoute
   UploadRoute: typeof UploadRoute
+  CUsernameRoute: typeof CUsernameRoute
   WatchVideoIdRoute: typeof WatchVideoIdRoute
 }
 
@@ -232,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WatchVideoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/c/$username': {
+      id: '/c/$username'
+      path: '/c/$username'
+      fullPath: '/c/$username'
+      preLoaderRoute: typeof CUsernameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -245,6 +265,7 @@ const rootRouteChildren: RootRouteChildren = {
   StudioRoute: StudioRoute,
   TrendingRoute: TrendingRoute,
   UploadRoute: UploadRoute,
+  CUsernameRoute: CUsernameRoute,
   WatchVideoIdRoute: WatchVideoIdRoute,
 }
 export const routeTree = rootRouteImport

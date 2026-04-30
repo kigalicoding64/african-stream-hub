@@ -1,6 +1,6 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Upload as UploadIcon, X, Check, Loader2, Film, Sparkles } from "lucide-react";
+import { Upload as UploadIcon, X, Check, Loader2, Film, Sparkles, Image as ImageIcon, AlertTriangle, RefreshCw } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -23,14 +23,57 @@ const CATEGORIES = ["Music", "Comedy", "Films", "Agasobanuye"] as const;
 const LANGUAGES = ["Kinyarwanda", "Swahili", "English"] as const;
 type Category = (typeof CATEGORIES)[number];
 type Language = (typeof LANGUAGES)[number];
-type Status = "idle" | "uploading" | "done" | "error";
+type Status = "idle" | "uploading" | "done" | "error" | "cancelled";
+
+const MAX_VIDEO_MB = 500;
+const MAX_THUMB_MB = 5;
+
+interface XhrUploadOpts {
+  url: string;
+  file: File;
+  token: string;
+  contentType: string;
+  onProgress: (pct: number) => void;
+  signal: AbortSignal;
+}
+
+// Direct upload to Supabase Storage REST endpoint via XHR — gives real progress + cancel.
+function xhrUpload({ url, file, token, contentType, onProgress, signal }: XhrUploadOpts): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.setRequestHeader("x-upsert", "false");
+    xhr.setRequestHeader("Content-Type", contentType);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else {
+        let msg = `Upload failed (${xhr.status})`;
+        try { const j = JSON.parse(xhr.responseText); if (j?.message) msg = j.message; } catch { /* ignore */ }
+        reject(new Error(msg));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Network error — check your connection"));
+    xhr.ontimeout = () => reject(new Error("Upload timed out"));
+    xhr.timeout = 0; // no client timeout; we rely on user cancel
+    signal.addEventListener("abort", () => xhr.abort(), { once: true });
+    xhr.send(file);
+  });
+}
 
 function UploadPage() {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
+  const [thumbFile, setThumbFile] = useState<File | null>(null);
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [thumbProgress, setThumbProgress] = useState(0);
   const [status, setStatus] = useState<Status>("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -38,6 +81,8 @@ function UploadPage() {
   const [category, setCategory] = useState<Category>("Music");
   const [duration, setDuration] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const thumbInputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!file) { setPreviewUrl(null); return; }
@@ -46,44 +91,97 @@ function UploadPage() {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  useEffect(() => {
+    if (!thumbFile) { setThumbUrl(null); return; }
+    const url = URL.createObjectURL(thumbFile);
+    setThumbUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [thumbFile]);
+
   const handleFile = (f: File | null | undefined) => {
-    if (!f || !f.type.startsWith("video/")) return;
+    if (!f) return;
+    if (!f.type.startsWith("video/")) { toast.error("Please choose a video file"); return; }
+    const mb = f.size / (1024 * 1024);
+    if (mb > MAX_VIDEO_MB) { toast.error(`Video too large (max ${MAX_VIDEO_MB} MB)`); return; }
     setFile(f);
-    setProgress(0);
+    setVideoProgress(0);
     setStatus("idle");
+    setErrorMsg(null);
     if (!title) setTitle(f.name.replace(/\.[^.]+$/, ""));
+  };
+
+  const handleThumb = (f: File | null | undefined) => {
+    if (!f) return;
+    if (!f.type.startsWith("image/")) { toast.error("Thumbnail must be an image"); return; }
+    const mb = f.size / (1024 * 1024);
+    if (mb > MAX_THUMB_MB) { toast.error(`Thumbnail too large (max ${MAX_THUMB_MB} MB)`); return; }
+    setThumbFile(f);
+    setThumbProgress(0);
   };
 
   const onLoadedMeta = (e: React.SyntheticEvent<HTMLVideoElement>) => {
     setDuration(Math.floor(e.currentTarget.duration || 0));
   };
 
+  const cancelUpload = () => {
+    abortRef.current?.abort();
+    setStatus("cancelled");
+    setErrorMsg("Upload cancelled");
+    toast("Upload cancelled");
+  };
+
   const publish = async () => {
     if (!file || !title.trim() || status === "uploading") return;
     setStatus("uploading");
-    setProgress(2);
+    setErrorMsg(null);
+    setVideoProgress(0);
+    setThumbProgress(0);
+
+    const ac = new AbortController();
+    abortRef.current = ac;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not signed in");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      const user = session?.user;
+      if (!session || !user) throw new Error("You're not signed in. Please sign in and try again.");
 
-      const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
-      const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 
-      // Simulated progress while uploading (Supabase JS doesn't expose progress)
-      const fakeProg = setInterval(() => {
-        setProgress((p) => Math.min(90, p + Math.random() * 8 + 2));
-      }, 250);
+      // 1) Video upload (real progress)
+      const ext = (file.name.split(".").pop() || "mp4").toLowerCase();
+      const videoPath = `${user.id}/${crypto.randomUUID()}.${ext}`;
+      await xhrUpload({
+        url: `${supabaseUrl}/storage/v1/object/videos/${videoPath}`,
+        file,
+        token: session.access_token,
+        contentType: file.type || "video/mp4",
+        onProgress: setVideoProgress,
+        signal: ac.signal,
+      });
+      setVideoProgress(100);
 
-      const { error: upErr } = await supabase.storage
-        .from("videos")
-        .upload(path, file, { contentType: file.type, upsert: false });
-      clearInterval(fakeProg);
-      if (upErr) throw upErr;
-      setProgress(95);
+      const { data: videoPub } = supabase.storage.from("videos").getPublicUrl(videoPath);
 
-      const { data: pub } = supabase.storage.from("videos").getPublicUrl(path);
+      // 2) Thumbnail upload (optional)
+      let thumbnailPublicUrl: string | null = null;
+      if (thumbFile) {
+        const tExt = (thumbFile.name.split(".").pop() || "jpg").toLowerCase();
+        const thumbPath = `${user.id}/${crypto.randomUUID()}.${tExt}`;
+        await xhrUpload({
+          url: `${supabaseUrl}/storage/v1/object/thumbnails/${thumbPath}`,
+          file: thumbFile,
+          token: session.access_token,
+          contentType: thumbFile.type || "image/jpeg",
+          onProgress: setThumbProgress,
+          signal: ac.signal,
+        });
+        setThumbProgress(100);
+        const { data: tPub } = supabase.storage.from("thumbnails").getPublicUrl(thumbPath);
+        thumbnailPublicUrl = tPub.publicUrl;
+      }
 
+      // 3) Insert DB row
       const { data: row, error: insErr } = await supabase
         .from("videos")
         .insert({
@@ -94,29 +192,47 @@ function UploadPage() {
           category,
           visibility: "public",
           status: "ready",
-          video_url: pub.publicUrl,
+          video_url: videoPub.publicUrl,
+          thumbnail_url: thumbnailPublicUrl,
           duration_seconds: duration || null,
         })
         .select("id")
         .single();
       if (insErr) throw insErr;
 
-      setProgress(100);
       setStatus("done");
-      toast.success("Video published!");
+      toast.success("Published! Your video is now live on IBONA.");
       setTimeout(() => navigate({ to: "/watch/$videoId", params: { videoId: row.id } }), 800);
     } catch (err) {
+      if (ac.signal.aborted) return; // already handled by cancelUpload
+      const msg = err instanceof Error ? err.message : "Upload failed";
       setStatus("error");
-      toast.error(err instanceof Error ? err.message : "Upload failed");
+      setErrorMsg(msg);
+      toast.error(msg);
+    } finally {
+      abortRef.current = null;
     }
   };
 
   const reset = () => {
-    setFile(null); setProgress(0); setStatus("idle"); setTitle(""); setDescription("");
+    abortRef.current?.abort();
+    setFile(null); setThumbFile(null);
+    setVideoProgress(0); setThumbProgress(0);
+    setStatus("idle"); setErrorMsg(null);
+    setTitle(""); setDescription("");
+  };
+
+  const retry = () => {
+    setStatus("idle"); setErrorMsg(null);
+    setVideoProgress(0); setThumbProgress(0);
+    publish();
   };
 
   const sizeMb = file ? (file.size / (1024 * 1024)).toFixed(1) : "0";
   const busy = status === "uploading";
+  const overall = thumbFile
+    ? Math.round((videoProgress + thumbProgress) / 2)
+    : videoProgress;
 
   return (
     <AppLayout>
@@ -138,7 +254,7 @@ function UploadPage() {
                 <UploadIcon className="h-8 w-8" />
               </div>
               <div className="text-xl font-bold">Drag &amp; drop a video</div>
-              <p className="text-sm text-muted-foreground mt-1">MP4 or MOV · 1080p recommended</p>
+              <p className="text-sm text-muted-foreground mt-1">MP4 or MOV · up to {MAX_VIDEO_MB} MB</p>
               <span className="mt-5 inline-flex rounded-full px-5 py-2 text-sm font-bold text-primary-foreground" style={{ background: "var(--gradient-brand)" }}>Choose file</span>
               <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
             </div>
@@ -156,7 +272,7 @@ function UploadPage() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="p-5 space-y-3">
+              <div className="p-5 space-y-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <div className="font-semibold truncate">{file.name}</div>
@@ -164,14 +280,62 @@ function UploadPage() {
                   </div>
                   <div className="text-sm font-mono font-bold tabular-nums">
                     {status === "done" ? <span className="inline-flex items-center gap-1 text-secondary"><Check className="h-4 w-4" /> Published</span>
-                      : busy ? <span className="inline-flex items-center gap-1 text-primary"><Loader2 className="h-4 w-4 animate-spin" /> {Math.round(progress)}%</span>
-                      : status === "error" ? <span className="text-destructive">Failed</span>
+                      : busy ? <span className="inline-flex items-center gap-1 text-primary"><Loader2 className="h-4 w-4 animate-spin" /> {overall}%</span>
+                      : status === "error" ? <span className="inline-flex items-center gap-1 text-destructive"><AlertTriangle className="h-4 w-4" /> Failed</span>
+                      : status === "cancelled" ? <span className="text-muted-foreground">Cancelled</span>
                       : <span className="text-muted-foreground">Ready</span>}
                   </div>
                 </div>
-                <div className="h-2 w-full rounded-full bg-background overflow-hidden">
-                  <div className="h-full transition-[width] duration-200" style={{ width: `${progress}%`, background: "var(--gradient-brand)" }} />
-                </div>
+
+                {/* Video progress */}
+                <ProgressRow label="Video" value={videoProgress} />
+
+                {/* Thumbnail row */}
+                {thumbFile ? (
+                  <ProgressRow label="Thumbnail" value={thumbProgress} />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => thumbInputRef.current?.click()}
+                    disabled={busy}
+                    className="inline-flex items-center gap-2 text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+                  >
+                    <ImageIcon className="h-3.5 w-3.5" /> Add a custom thumbnail (optional)
+                  </button>
+                )}
+                <input
+                  ref={thumbInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleThumb(e.target.files?.[0])}
+                />
+
+                {thumbUrl && (
+                  <div className="flex items-center gap-3">
+                    <img src={thumbUrl} alt="Thumbnail preview" className="h-14 w-24 rounded-md object-cover ring-1 ring-border" />
+                    <button
+                      type="button"
+                      onClick={() => setThumbFile(null)}
+                      disabled={busy}
+                      className="text-xs text-muted-foreground hover:text-destructive disabled:opacity-50"
+                    >
+                      Remove thumbnail
+                    </button>
+                  </div>
+                )}
+
+                {errorMsg && (status === "error" || status === "cancelled") && (
+                  <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span className="flex-1">{errorMsg}</span>
+                    {status === "error" && (
+                      <button onClick={retry} className="inline-flex items-center gap-1 font-bold hover:underline">
+                        <RefreshCw className="h-3 w-3" /> Retry
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -193,7 +357,15 @@ function UploadPage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-end gap-3">
-              <button onClick={reset} disabled={busy} className="rounded-full border border-border bg-surface hover:bg-surface-elevated px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50">Cancel</button>
+              {busy ? (
+                <button onClick={cancelUpload} className="inline-flex items-center gap-2 rounded-full border border-destructive/50 text-destructive bg-destructive/5 hover:bg-destructive/10 px-5 py-2.5 text-sm font-semibold transition">
+                  <X className="h-4 w-4" /> Cancel upload
+                </button>
+              ) : (
+                <button onClick={reset} disabled={status === "done"} className="rounded-full border border-border bg-surface hover:bg-surface-elevated px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50">
+                  {status === "error" || status === "cancelled" ? "Start over" : "Cancel"}
+                </button>
+              )}
               <button onClick={publish} disabled={busy || !title.trim() || status === "done"} className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-bold text-primary-foreground transition hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 shadow-[var(--shadow-glow)]" style={{ background: "var(--gradient-brand)" }}>
                 {status === "done" ? <><Check className="h-4 w-4" /> Published</>
                   : busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</>
@@ -213,6 +385,20 @@ function UploadPage() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+function ProgressRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs font-semibold mb-1">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-mono tabular-nums">{value}%</span>
+      </div>
+      <div className="h-2 w-full rounded-full bg-background overflow-hidden">
+        <div className="h-full transition-[width] duration-200" style={{ width: `${value}%`, background: "var(--gradient-brand)" }} />
+      </div>
+    </div>
   );
 }
 

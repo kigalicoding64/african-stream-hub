@@ -120,7 +120,18 @@ export function VideoCard({ video, size = "default" }: Props) {
           <h3 className="line-clamp-2 text-sm font-semibold text-foreground leading-snug group-hover:text-primary transition-colors">
             {video.title}
           </h3>
-          <p className="mt-1 text-xs text-muted-foreground truncate">{video.creator}</p>
+          {video.creatorUsername ? (
+            <Link
+              to="/c/$username"
+              params={{ username: video.creatorUsername }}
+              onClick={(e) => e.stopPropagation()}
+              className="mt-1 block text-xs text-muted-foreground truncate hover:text-primary transition-colors"
+            >
+              {video.creator}
+            </Link>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground truncate">{video.creator}</p>
+          )}
           <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
             <Eye className="h-3 w-3" />
             <span>{video.views} views</span>

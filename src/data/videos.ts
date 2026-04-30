@@ -15,6 +15,8 @@ export interface Video {
   title: string;
   creator: string;
   creatorAvatar?: string;
+  creatorId?: string;
+  creatorUsername?: string;
   thumbnail: string;
   previewSrc?: string; // muted mp4 preview
   views: string;
