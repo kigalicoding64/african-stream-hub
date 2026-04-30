@@ -103,3 +103,33 @@ export async function incrementVideoView(id: string): Promise<void> {
     /* ignore */
   }
 }
+
+export interface CreatorProfile {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  banner_url: string | null;
+  bio: string | null;
+}
+
+export async function fetchProfileByUsername(username: string): Promise<CreatorProfile | null> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, username, display_name, avatar_url, banner_url, bio")
+    .eq("username", username)
+    .maybeSingle();
+  return (data as CreatorProfile) ?? null;
+}
+
+export async function fetchVideosByOwner(ownerId: string): Promise<Video[]> {
+  const { data, error } = await supabase
+    .from("videos")
+    .select("*, profiles(display_name, username, avatar_url)")
+    .eq("owner_id", ownerId)
+    .eq("visibility", "public")
+    .eq("status", "ready")
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+  return (data as unknown as DbVideo[]).map(dbToVideo);
+}
