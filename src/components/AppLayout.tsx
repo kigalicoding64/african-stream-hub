@@ -89,6 +89,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           ) : (
             <Link
               to="/auth"
+              search={{ redirect: "/", mode: "login" }}
               className="hidden sm:inline-flex items-center gap-1.5 h-9 rounded-full px-4 text-xs font-bold text-primary-foreground shadow-[var(--shadow-glow)]"
               style={{ background: "var(--gradient-brand)" }}
             >
