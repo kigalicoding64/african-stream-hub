@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Hero } from "@/components/Hero";
 import { VideoRail } from "@/components/VideoRail";
 import { VideoCard } from "@/components/VideoCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
-import { videos, getTrending } from "@/data/videos";
+import { videos as mockVideos, type Video } from "@/data/videos";
+import { fetchAllFeed } from "@/lib/videos-api";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -21,11 +23,31 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const [category, setCategory] = useState("All");
-  const featured = videos[0];
-  const trending = useMemo(() => getTrending().slice(0, 6), []);
+  const [feed, setFeed] = useState<Video[]>(mockVideos);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAllFeed().then((list) => {
+      if (!cancelled && list.length) setFeed(list);
+    });
+    // Refresh when a new video is published in this session
+    const ch = supabase
+      .channel("videos-feed")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "videos" }, () => {
+        fetchAllFeed().then((list) => !cancelled && list.length && setFeed(list));
+      })
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(ch);
+    };
+  }, []);
+
+  const featured = feed[0] ?? mockVideos[0];
+  const trending = useMemo(() => feed.slice(0, 6), [feed]);
   const filtered = useMemo(
-    () => (category === "All" ? videos : videos.filter((v) => v.category === category)),
-    [category]
+    () => (category === "All" ? feed : feed.filter((v) => v.category === category)),
+    [feed, category]
   );
 
   return (
