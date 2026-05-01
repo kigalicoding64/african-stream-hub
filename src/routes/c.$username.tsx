@@ -108,7 +108,7 @@ function CreatorPage() {
   }
 
   const display = profile.display_name || profile.username || "Creator";
-  const totalViews = videos.length; // We don't aggregate views client-side from list
+  
 
   return (
     <AppLayout>
