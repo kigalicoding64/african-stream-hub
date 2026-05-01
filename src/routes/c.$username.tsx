@@ -125,14 +125,35 @@ function CreatorPage() {
                 : { background: "var(--gradient-brand)" }
             }
           />
-          <div className="text-center sm:text-left min-w-0">
+          <div className="text-center sm:text-left min-w-0 flex-1">
             <div className="text-xs font-bold uppercase tracking-widest opacity-80">Creator</div>
             <h1 className="text-3xl sm:text-4xl font-black truncate">{display}</h1>
             {profile.username && (
-              <p className="opacity-90 mt-1">@{profile.username} · {videos.length} {videos.length === 1 ? "video" : "videos"}</p>
+              <p className="opacity-90 mt-1">
+                @{profile.username} · {followers.toLocaleString()} {followers === 1 ? "follower" : "followers"} · {videos.length} {videos.length === 1 ? "video" : "videos"}
+              </p>
             )}
             {profile.bio && <p className="mt-2 opacity-95 max-w-xl">{profile.bio}</p>}
           </div>
+          {!isOwnProfile && (
+            <button
+              onClick={toggleFollow}
+              disabled={followBusy}
+              className={`shrink-0 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition disabled:opacity-50 ${
+                following
+                  ? "bg-background/90 text-foreground hover:bg-background"
+                  : "bg-primary-foreground text-primary hover:scale-105"
+              }`}
+            >
+              {followBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : following ? (
+                <><UserCheck className="h-4 w-4" /> Following</>
+              ) : (
+                <><UserPlus className="h-4 w-4" /> Follow</>
+              )}
+            </button>
+          )}
         </div>
       </section>
 
