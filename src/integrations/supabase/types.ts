@@ -52,6 +52,27 @@ export type Database = {
           },
         ]
       }
+      follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -150,6 +171,7 @@ export type Database = {
           id: string
           language: Database["public"]["Enums"]["video_language"]
           likes: number
+          media_type: Database["public"]["Enums"]["media_type"]
           owner_id: string
           status: Database["public"]["Enums"]["video_status"]
           thumbnail_url: string | null
@@ -167,6 +189,7 @@ export type Database = {
           id?: string
           language?: Database["public"]["Enums"]["video_language"]
           likes?: number
+          media_type?: Database["public"]["Enums"]["media_type"]
           owner_id: string
           status?: Database["public"]["Enums"]["video_status"]
           thumbnail_url?: string | null
@@ -184,6 +207,7 @@ export type Database = {
           id?: string
           language?: Database["public"]["Enums"]["video_language"]
           likes?: number
+          media_type?: Database["public"]["Enums"]["media_type"]
           owner_id?: string
           status?: Database["public"]["Enums"]["video_status"]
           thumbnail_url?: string | null
@@ -210,6 +234,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "creator" | "user"
+      media_type: "video" | "audio"
       video_category: "Music" | "Comedy" | "Films" | "Agasobanuye"
       video_language: "Kinyarwanda" | "Swahili" | "English"
       video_status: "processing" | "ready" | "failed"
@@ -342,6 +367,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "creator", "user"],
+      media_type: ["video", "audio"],
       video_category: ["Music", "Comedy", "Films", "Agasobanuye"],
       video_language: ["Kinyarwanda", "Swahili", "English"],
       video_status: ["processing", "ready", "failed"],
