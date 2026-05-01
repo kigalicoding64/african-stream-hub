@@ -6,8 +6,9 @@ import { VideoRail } from "@/components/VideoRail";
 import { VideoCard } from "@/components/VideoCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { videos as mockVideos, type Video } from "@/data/videos";
-import { fetchAllFeed } from "@/lib/videos-api";
+import { fetchPrioritizedFeed } from "@/lib/videos-api";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -22,26 +23,26 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const { user } = useAuth();
   const [category, setCategory] = useState("All");
   const [feed, setFeed] = useState<Video[]>(mockVideos);
 
   useEffect(() => {
     let cancelled = false;
-    fetchAllFeed().then((list) => {
+    const load = () => fetchPrioritizedFeed(user?.id ?? null).then((list) => {
       if (!cancelled && list.length) setFeed(list);
     });
-    // Refresh when a new video is published in this session
+    load();
     const ch = supabase
       .channel("videos-feed")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "videos" }, () => {
-        fetchAllFeed().then((list) => !cancelled && list.length && setFeed(list));
-      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "videos" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "follows" }, () => load())
       .subscribe();
     return () => {
       cancelled = true;
       supabase.removeChannel(ch);
     };
-  }, []);
+  }, [user?.id]);
 
   const featured = feed[0] ?? mockVideos[0];
   const trending = useMemo(() => feed.slice(0, 6), [feed]);
