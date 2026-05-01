@@ -1,9 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Loader2, Film } from "lucide-react";
+import { Loader2, Film, UserPlus, UserCheck } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { VideoCard } from "@/components/VideoCard";
-import { fetchProfileByUsername, fetchVideosByOwner, type CreatorProfile } from "@/lib/videos-api";
+import { fetchProfileByUsername, fetchVideosByOwner, getFollowState, followCreator, unfollowCreator, type CreatorProfile } from "@/lib/videos-api";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import type { Video } from "@/data/videos";
 
 export const Route = createFileRoute("/c/$username")({
@@ -19,10 +21,15 @@ export const Route = createFileRoute("/c/$username")({
 
 function CreatorPage() {
   const { username } = Route.useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [following, setFollowing] = useState(false);
+  const [followers, setFollowers] = useState(0);
+  const [followBusy, setFollowBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,14 +44,46 @@ function CreatorPage() {
         return;
       }
       setProfile(p);
-      const vids = await fetchVideosByOwner(p.id);
+      const [vids, state] = await Promise.all([
+        fetchVideosByOwner(p.id),
+        getFollowState(p.id, user?.id ?? null),
+      ]);
       if (!cancelled) {
         setVideos(vids);
+        setFollowing(state.following);
+        setFollowers(state.followers);
         setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [username]);
+  }, [username, user?.id]);
+
+  const isOwnProfile = !!user && !!profile && user.id === profile.id;
+
+  const toggleFollow = async () => {
+    if (!profile) return;
+    if (!user) {
+      navigate({ to: "/auth", search: { redirect: `/c/${username}`, mode: "login" } });
+      return;
+    }
+    setFollowBusy(true);
+    try {
+      if (following) {
+        await unfollowCreator(profile.id, user.id);
+        setFollowing(false);
+        setFollowers((n) => Math.max(0, n - 1));
+      } else {
+        await followCreator(profile.id, user.id);
+        setFollowing(true);
+        setFollowers((n) => n + 1);
+        toast.success(`Following ${profile.display_name || profile.username}`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update follow");
+    } finally {
+      setFollowBusy(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -69,7 +108,7 @@ function CreatorPage() {
   }
 
   const display = profile.display_name || profile.username || "Creator";
-  const totalViews = videos.length; // We don't aggregate views client-side from list
+  
 
   return (
     <AppLayout>
@@ -86,14 +125,35 @@ function CreatorPage() {
                 : { background: "var(--gradient-brand)" }
             }
           />
-          <div className="text-center sm:text-left min-w-0">
+          <div className="text-center sm:text-left min-w-0 flex-1">
             <div className="text-xs font-bold uppercase tracking-widest opacity-80">Creator</div>
             <h1 className="text-3xl sm:text-4xl font-black truncate">{display}</h1>
             {profile.username && (
-              <p className="opacity-90 mt-1">@{profile.username} · {videos.length} {videos.length === 1 ? "video" : "videos"}</p>
+              <p className="opacity-90 mt-1">
+                @{profile.username} · {followers.toLocaleString()} {followers === 1 ? "follower" : "followers"} · {videos.length} {videos.length === 1 ? "video" : "videos"}
+              </p>
             )}
             {profile.bio && <p className="mt-2 opacity-95 max-w-xl">{profile.bio}</p>}
           </div>
+          {!isOwnProfile && (
+            <button
+              onClick={toggleFollow}
+              disabled={followBusy}
+              className={`shrink-0 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition disabled:opacity-50 ${
+                following
+                  ? "bg-background/90 text-foreground hover:bg-background"
+                  : "bg-primary-foreground text-primary hover:scale-105"
+              }`}
+            >
+              {followBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : following ? (
+                <><UserCheck className="h-4 w-4" /> Following</>
+              ) : (
+                <><UserPlus className="h-4 w-4" /> Follow</>
+              )}
+            </button>
+          )}
         </div>
       </section>
 
