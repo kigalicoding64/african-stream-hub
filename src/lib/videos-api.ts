@@ -81,6 +81,47 @@ export async function fetchAllFeed(): Promise<Video[]> {
   return [...dbVideos, ...mockVideos];
 }
 
+/** Returns feed with videos from creators the current user follows pinned to the top. */
+export async function fetchPrioritizedFeed(userId: string | null): Promise<Video[]> {
+  const all = await fetchAllFeed();
+  if (!userId) return all;
+  const { data } = await supabase
+    .from("follows")
+    .select("following_id")
+    .eq("follower_id", userId);
+  const followedIds = new Set((data ?? []).map((r) => r.following_id as string));
+  if (followedIds.size === 0) return all;
+  const followed: Video[] = [];
+  const others: Video[] = [];
+  for (const v of all) {
+    if (v.creatorId && followedIds.has(v.creatorId)) followed.push(v);
+    else others.push(v);
+  }
+  return [...followed, ...others];
+}
+
+// ---- Follows ----
+
+export async function getFollowState(creatorId: string, viewerId: string | null): Promise<{ following: boolean; followers: number }> {
+  const [{ count }, mine] = await Promise.all([
+    supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", creatorId),
+    viewerId
+      ? supabase.from("follows").select("id").eq("follower_id", viewerId).eq("following_id", creatorId).maybeSingle()
+      : Promise.resolve({ data: null } as { data: null }),
+  ]);
+  return { following: !!(mine as { data: unknown }).data, followers: count ?? 0 };
+}
+
+export async function followCreator(creatorId: string, viewerId: string): Promise<void> {
+  const { error } = await supabase.from("follows").insert({ follower_id: viewerId, following_id: creatorId });
+  if (error && !/duplicate/i.test(error.message)) throw error;
+}
+
+export async function unfollowCreator(creatorId: string, viewerId: string): Promise<void> {
+  const { error } = await supabase.from("follows").delete().eq("follower_id", viewerId).eq("following_id", creatorId);
+  if (error) throw error;
+}
+
 export async function fetchVideoById(id: string): Promise<Video | null> {
   const { data, error } = await supabase
     .from("videos")
