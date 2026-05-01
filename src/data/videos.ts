@@ -6,6 +6,7 @@ import thumbMusic1 from "@/assets/thumb-music1.jpg";
 import thumbMusic2 from "@/assets/thumb-music2.jpg";
 import thumbAga from "@/assets/thumb-agasobanuye.jpg";
 import thumbTrend from "@/assets/thumb-trending1.jpg";
+import thumbRoar from "@/assets/thumb-roar.jpg";
 
 export type Category = "Music" | "Comedy" | "Films" | "Agasobanuye";
 export type Language = "Kinyarwanda" | "Swahili" | "English";
@@ -134,6 +135,32 @@ export const videos: Video[] = [
     category: "Films",
     description: "A gripping urban drama from the streets of East Africa.",
     uploadedAt: "1 week ago",
+  },
+  {
+    id: "v9",
+    title: "Roar — Live Performance",
+    creator: "Katy Perry",
+    thumbnail: thumbRoar,
+    previewSrc: "/seed/katy-perry-roar.mp4",
+    views: "12M",
+    duration: "3:44",
+    language: "English",
+    category: "Music",
+    description: "An electrifying live performance of the global hit anthem.",
+    uploadedAt: "2 days ago",
+  },
+  {
+    id: "v10",
+    title: "Roar — Acoustic Session",
+    creator: "Katy Perry",
+    thumbnail: thumbRoar,
+    previewSrc: "/seed/katy-perry-roar-2.mp4",
+    views: "8.3M",
+    duration: "3:44",
+    language: "English",
+    category: "Music",
+    description: "Stripped-back acoustic version of the empowering anthem.",
+    uploadedAt: "5 days ago",
   },
 ];
 
