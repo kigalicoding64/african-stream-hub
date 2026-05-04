@@ -441,7 +441,7 @@ function WatchPage() {
             <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition">
               <ActionPill icon={Heart} label="Like" active={liked} onClick={() => setLiked((p) => !p)} />
               <ActionPill icon={MessageCircle} label="Comments" active={showComments} onClick={() => setShowComments((p) => !p)} />
-              <ActionPill icon={Share2} label="Share" />
+              <ActionPill icon={Share2} label="Share" onClick={handleShare} />
             </div>
 
             <div className="absolute bottom-4 left-4 right-4 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition">
@@ -707,7 +707,7 @@ function WatchPage() {
                 >
                   <MessageCircle className="h-4 w-4" /> Comment
                 </button>
-                <button className="inline-flex items-center gap-2 rounded-full border border-border bg-surface hover:bg-surface-elevated px-4 py-2 text-sm font-semibold transition">
+                <button onClick={handleShare} className="inline-flex items-center gap-2 rounded-full border border-border bg-surface hover:bg-surface-elevated px-4 py-2 text-sm font-semibold transition">
                   <Share2 className="h-4 w-4" /> Share
                 </button>
               </div>

@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { AppSidebar, MobileBottomNav } from "./Sidebar";
-import { Search, Bell, Wifi, WifiOff, LogOut, User, LayoutDashboard, Upload as UploadIcon } from "lucide-react";
+import { Search, Bell, Wifi, WifiOff, LogOut, User, LayoutDashboard, Upload as UploadIcon, Settings as SettingsIcon } from "lucide-react";
 import { IbonaLogo } from "./IbonaLogo";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/contexts/AuthContext";
@@ -76,6 +76,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     <MenuItem to="/studio" icon={LayoutDashboard} onClick={() => setMenu(false)}>Creator Studio</MenuItem>
                     <MenuItem to="/upload" icon={UploadIcon} onClick={() => setMenu(false)}>Upload video</MenuItem>
                     <MenuItem to="/profile" icon={User} onClick={() => setMenu(false)}>My profile</MenuItem>
+                    <MenuItem to="/settings" icon={SettingsIcon} onClick={() => setMenu(false)}>Settings</MenuItem>
                     <button
                       onClick={async () => { setMenu(false); await signOut(); navigate({ to: "/" }); }}
                       className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition"
@@ -107,7 +108,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   );
 }
 
-function MenuItem({ to, icon: Icon, children, onClick }: { to: "/studio" | "/upload" | "/profile"; icon: typeof User; children: ReactNode; onClick: () => void }) {
+function MenuItem({ to, icon: Icon, children, onClick }: { to: "/studio" | "/upload" | "/profile" | "/settings"; icon: typeof User; children: ReactNode; onClick: () => void }) {
   return (
     <Link
       to={to}
