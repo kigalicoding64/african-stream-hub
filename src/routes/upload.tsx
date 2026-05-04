@@ -124,13 +124,23 @@ function UploadPage() {
   const addFiles = async (files: FileList | File[]) => {
     const arr = Array.from(files);
     const accepted: QueueItem[] = [];
-    let rejected = 0;
+    const errors: string[] = [];
     for (const f of arr) {
       const mt = detectMediaType(f);
-      if (!mt) { rejected++; continue; }
+      if (!mt) {
+        errors.push(`${f.name}: unsupported type — only video files and MP3 audio are allowed`);
+        continue;
+      }
       const mb = f.size / (1024 * 1024);
       const limit = mt === "video" ? MAX_VIDEO_MB : MAX_AUDIO_MB;
-      if (mb > limit) { rejected++; continue; }
+      if (mb > limit) {
+        errors.push(`${f.name}: too large (${mb.toFixed(1)} MB) — ${mt === "video" ? `videos must be under ${MAX_VIDEO_MB} MB` : `audio must be under ${MAX_AUDIO_MB} MB`}`);
+        continue;
+      }
+      if (f.size === 0) {
+        errors.push(`${f.name}: file is empty`);
+        continue;
+      }
       const dur = await probeDuration(f, mt);
       accepted.push({
         id: crypto.randomUUID(),
@@ -149,7 +159,12 @@ function UploadPage() {
       });
     }
     if (accepted.length) setQueue((q) => [...q, ...accepted]);
-    if (rejected > 0) toast.error(`${rejected} file(s) skipped (unsupported or too large)`);
+    if (errors.length) {
+      // Show up to 3 specific reasons; collapse the rest
+      const shown = errors.slice(0, 3).join("\n");
+      const more = errors.length > 3 ? `\n…and ${errors.length - 3} more` : "";
+      toast.error(`${errors.length} file(s) skipped`, { description: shown + more });
+    }
     if (accepted.length) toast.success(`Added ${accepted.length} file(s) to queue`);
   };
 
