@@ -359,6 +359,23 @@ function WatchPage() {
   };
   const toggleMute = () => setMuted((m) => !m);
 
+  const handleShare = async () => {
+    const url = `${window.location.origin}/watch/${videoId}`;
+    const shareData = { title: video?.title ?? "IBONA", text: video?.description ?? "", url };
+    try {
+      if (navigator.share && navigator.canShare?.(shareData)) {
+        await navigator.share(shareData);
+        return;
+      }
+    } catch { /* user cancelled */ }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied to clipboard");
+    } catch {
+      toast.error("Couldn't share — copy this URL: " + url);
+    }
+  };
+
   if (loadingVideo) {
     return (
       <AppLayout>
