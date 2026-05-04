@@ -26,6 +26,7 @@ export interface Video {
   category: Category;
   description: string;
   uploadedAt: string;
+  mediaType?: "video" | "audio";
 }
 
 // Royalty-free preview clip (small, public test)

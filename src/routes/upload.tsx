@@ -29,10 +29,14 @@ type Language = (typeof LANGUAGES)[number];
 type MediaType = "video" | "audio";
 type ItemStatus = "queued" | "uploading" | "done" | "error" | "cancelled";
 
-const MAX_VIDEO_MB = 500;
+const MAX_VIDEO_MB = 10240; // 10 GB
 const MAX_AUDIO_MB = 50;
 const MAX_THUMB_MB = 5;
 const CONCURRENCY = 3;
+
+function fmtLimit(mb: number) {
+  return mb >= 1024 ? `${(mb / 1024).toFixed(0)} GB` : `${mb} MB`;
+}
 
 interface QueueItem {
   id: string;
@@ -121,26 +125,27 @@ function UploadPage() {
     setQueue((q) => q.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   };
 
+  /** Returns null if file is valid for upload, otherwise a human-readable reason. */
+  const validateFile = (f: File): { mediaType: MediaType } | { error: string } => {
+    const mt = detectMediaType(f);
+    if (!mt) return { error: `${f.name}: unsupported type — only video files and MP3 audio are allowed` };
+    if (f.size === 0) return { error: `${f.name}: file is empty` };
+    const mb = f.size / (1024 * 1024);
+    const limit = mt === "video" ? MAX_VIDEO_MB : MAX_AUDIO_MB;
+    if (mb > limit) {
+      return { error: `${f.name}: too large (${mb.toFixed(1)} MB) — ${mt === "video" ? `videos must be under ${fmtLimit(MAX_VIDEO_MB)}` : `audio must be under ${fmtLimit(MAX_AUDIO_MB)}`}` };
+    }
+    return { mediaType: mt };
+  };
+
   const addFiles = async (files: FileList | File[]) => {
     const arr = Array.from(files);
     const accepted: QueueItem[] = [];
     const errors: string[] = [];
     for (const f of arr) {
-      const mt = detectMediaType(f);
-      if (!mt) {
-        errors.push(`${f.name}: unsupported type — only video files and MP3 audio are allowed`);
-        continue;
-      }
-      const mb = f.size / (1024 * 1024);
-      const limit = mt === "video" ? MAX_VIDEO_MB : MAX_AUDIO_MB;
-      if (mb > limit) {
-        errors.push(`${f.name}: too large (${mb.toFixed(1)} MB) — ${mt === "video" ? `videos must be under ${MAX_VIDEO_MB} MB` : `audio must be under ${MAX_AUDIO_MB} MB`}`);
-        continue;
-      }
-      if (f.size === 0) {
-        errors.push(`${f.name}: file is empty`);
-        continue;
-      }
+      const v = validateFile(f);
+      if ("error" in v) { errors.push(v.error); continue; }
+      const mt = v.mediaType;
       const dur = await probeDuration(f, mt);
       accepted.push({
         id: crypto.randomUUID(),
@@ -301,7 +306,16 @@ function UploadPage() {
   };
 
   const retryItem = (id: string) => {
-    updateItem(id, { status: "queued", error: null, progress: 0 });
+    const it = queueRef.current.find((q) => q.id === id);
+    if (!it) return;
+    // Re-validate the file in case limits changed or the file went stale
+    const v = validateFile(it.file);
+    if ("error" in v) {
+      updateItem(id, { status: "error", error: v.error, progress: 0, controller: null });
+      toast.error("Can't retry this file", { description: v.error });
+      return;
+    }
+    updateItem(id, { status: "queued", error: null, progress: 0, controller: null });
     runQueue();
   };
 
@@ -343,7 +357,7 @@ function UploadPage() {
             </div>
             <div className="text-lg font-bold">Drag &amp; drop files (or pick a folder)</div>
             <p className="text-sm text-muted-foreground mt-1">
-              Videos up to {MAX_VIDEO_MB} MB · MP3 tracks up to {MAX_AUDIO_MB} MB · Bulk supported
+              Videos up to {fmtLimit(MAX_VIDEO_MB)} · MP3 tracks up to {fmtLimit(MAX_AUDIO_MB)} · Bulk supported
             </p>
             <span className="mt-4 inline-flex rounded-full px-5 py-2 text-sm font-bold text-primary-foreground" style={{ background: "var(--gradient-brand)" }}>
               Choose files

@@ -397,6 +397,7 @@ function WatchPage() {
   }
 
   const preload = shouldReducePreviews ? "metadata" : "auto";
+  const isAudio = video.mediaType === "audio";
 
   return (
     <AppLayout>
@@ -407,6 +408,28 @@ function WatchPage() {
             ref={playerRef}
             className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black ring-1 ring-border shadow-[var(--shadow-elegant)] group"
           >
+            {isAudio && (
+              <>
+                <img
+                  src={video.thumbnail}
+                  alt={video.title}
+                  className="absolute inset-0 h-full w-full object-cover blur-xl opacity-60"
+                  aria-hidden
+                />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 pointer-events-none">
+                  <img
+                    src={video.thumbnail}
+                    alt={video.title}
+                    className="h-44 w-44 sm:h-56 sm:w-56 rounded-2xl object-cover ring-1 ring-white/20 shadow-[var(--shadow-elegant)]"
+                  />
+                  <div className="text-center text-white">
+                    <div className="text-xs font-bold uppercase tracking-widest opacity-80">Audio track</div>
+                    <div className="font-bold text-lg sm:text-xl line-clamp-1">{video.title}</div>
+                    <div className="text-sm opacity-80">{video.creator}</div>
+                  </div>
+                </div>
+              </>
+            )}
             <video
               ref={videoRef}
               src={video.previewSrc}
@@ -416,7 +439,7 @@ function WatchPage() {
               playsInline
               preload={preload}
               crossOrigin="anonymous"
-              className="h-full w-full object-cover"
+              className={`h-full w-full ${isAudio ? "opacity-0" : "object-cover"}`}
               onClick={togglePlay}
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
@@ -424,7 +447,7 @@ function WatchPage() {
               onTimeUpdate={handleTimeUpdate}
               onVolumeChange={(e) => setMuted((e.target as HTMLVideoElement).muted)}
             >
-              {ALL_LANGS.map((l) => (
+              {!isAudio && ALL_LANGS.map((l) => (
                 <track
                   key={l}
                   kind="subtitles"

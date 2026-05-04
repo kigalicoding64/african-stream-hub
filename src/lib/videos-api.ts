@@ -16,6 +16,7 @@ export interface DbVideo {
   views: number;
   likes: number;
   created_at: string;
+  media_type?: "video" | "audio" | null;
   profiles?: { display_name: string | null; username: string | null; avatar_url: string | null } | null;
 }
 
@@ -60,6 +61,7 @@ export function dbToVideo(v: DbVideo): Video {
     category: v.category,
     description: v.description ?? "",
     uploadedAt: relTime(v.created_at),
+    mediaType: v.media_type ?? "video",
   };
 }
 
