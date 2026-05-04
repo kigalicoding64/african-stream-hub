@@ -16,6 +16,7 @@ export interface DbVideo {
   views: number;
   likes: number;
   created_at: string;
+  media_type?: "video" | "audio" | null;
   profiles?: { display_name: string | null; username: string | null; avatar_url: string | null } | null;
 }
 
