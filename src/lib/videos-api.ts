@@ -61,6 +61,7 @@ export function dbToVideo(v: DbVideo): Video {
     category: v.category,
     description: v.description ?? "",
     uploadedAt: relTime(v.created_at),
+    mediaType: v.media_type ?? "video",
   };
 }
 
