@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Music2, Film, TrendingUp, Upload, User, Play, LayoutDashboard } from "lucide-react";
+import { Home, Music2, Film, TrendingUp, Upload, User, Play, LayoutDashboard, Settings } from "lucide-react";
 import { IbonaLogo } from "./IbonaLogo";
 
 const items = [
@@ -11,6 +11,7 @@ const items = [
   { to: "/upload", label: "Upload", icon: Upload },
   { to: "/studio", label: "Creator Studio", icon: LayoutDashboard },
   { to: "/profile", label: "Profile", icon: User },
+  { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function AppSidebar() {
