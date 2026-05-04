@@ -306,7 +306,16 @@ function UploadPage() {
   };
 
   const retryItem = (id: string) => {
-    updateItem(id, { status: "queued", error: null, progress: 0 });
+    const it = queueRef.current.find((q) => q.id === id);
+    if (!it) return;
+    // Re-validate the file in case limits changed or the file went stale
+    const v = validateFile(it.file);
+    if ("error" in v) {
+      updateItem(id, { status: "error", error: v.error, progress: 0, controller: null });
+      toast.error("Can't retry this file", { description: v.error });
+      return;
+    }
+    updateItem(id, { status: "queued", error: null, progress: 0, controller: null });
     runQueue();
   };
 
@@ -348,7 +357,7 @@ function UploadPage() {
             </div>
             <div className="text-lg font-bold">Drag &amp; drop files (or pick a folder)</div>
             <p className="text-sm text-muted-foreground mt-1">
-              Videos up to {MAX_VIDEO_MB} MB · MP3 tracks up to {MAX_AUDIO_MB} MB · Bulk supported
+              Videos up to {fmtLimit(MAX_VIDEO_MB)} · MP3 tracks up to {fmtLimit(MAX_AUDIO_MB)} · Bulk supported
             </p>
             <span className="mt-4 inline-flex rounded-full px-5 py-2 text-sm font-bold text-primary-foreground" style={{ background: "var(--gradient-brand)" }}>
               Choose files
