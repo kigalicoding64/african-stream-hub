@@ -29,10 +29,14 @@ type Language = (typeof LANGUAGES)[number];
 type MediaType = "video" | "audio";
 type ItemStatus = "queued" | "uploading" | "done" | "error" | "cancelled";
 
-const MAX_VIDEO_MB = 500;
+const MAX_VIDEO_MB = 10240; // 10 GB
 const MAX_AUDIO_MB = 50;
 const MAX_THUMB_MB = 5;
 const CONCURRENCY = 3;
+
+function fmtLimit(mb: number) {
+  return mb >= 1024 ? `${(mb / 1024).toFixed(0)} GB` : `${mb} MB`;
+}
 
 interface QueueItem {
   id: string;
