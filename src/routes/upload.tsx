@@ -125,26 +125,27 @@ function UploadPage() {
     setQueue((q) => q.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   };
 
+  /** Returns null if file is valid for upload, otherwise a human-readable reason. */
+  const validateFile = (f: File): { mediaType: MediaType } | { error: string } => {
+    const mt = detectMediaType(f);
+    if (!mt) return { error: `${f.name}: unsupported type — only video files and MP3 audio are allowed` };
+    if (f.size === 0) return { error: `${f.name}: file is empty` };
+    const mb = f.size / (1024 * 1024);
+    const limit = mt === "video" ? MAX_VIDEO_MB : MAX_AUDIO_MB;
+    if (mb > limit) {
+      return { error: `${f.name}: too large (${mb.toFixed(1)} MB) — ${mt === "video" ? `videos must be under ${fmtLimit(MAX_VIDEO_MB)}` : `audio must be under ${fmtLimit(MAX_AUDIO_MB)}`}` };
+    }
+    return { mediaType: mt };
+  };
+
   const addFiles = async (files: FileList | File[]) => {
     const arr = Array.from(files);
     const accepted: QueueItem[] = [];
     const errors: string[] = [];
     for (const f of arr) {
-      const mt = detectMediaType(f);
-      if (!mt) {
-        errors.push(`${f.name}: unsupported type — only video files and MP3 audio are allowed`);
-        continue;
-      }
-      const mb = f.size / (1024 * 1024);
-      const limit = mt === "video" ? MAX_VIDEO_MB : MAX_AUDIO_MB;
-      if (mb > limit) {
-        errors.push(`${f.name}: too large (${mb.toFixed(1)} MB) — ${mt === "video" ? `videos must be under ${MAX_VIDEO_MB} MB` : `audio must be under ${MAX_AUDIO_MB} MB`}`);
-        continue;
-      }
-      if (f.size === 0) {
-        errors.push(`${f.name}: file is empty`);
-        continue;
-      }
+      const v = validateFile(f);
+      if ("error" in v) { errors.push(v.error); continue; }
+      const mt = v.mediaType;
       const dur = await probeDuration(f, mt);
       accepted.push({
         id: crypto.randomUUID(),
