@@ -21,7 +21,7 @@ import {
 import { AppLayout } from "@/components/AppLayout";
 import { VideoCard } from "@/components/VideoCard";
 import { getVideoById, videos as mockVideos, type Language, type Video } from "@/data/videos";
-import { fetchVideoById, fetchAllFeed, incrementVideoView } from "@/lib/videos-api";
+import { fetchVideoById, fetchAllFeed, incrementVideoView, getLikeState, likeVideo, unlikeVideo } from "@/lib/videos-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -106,6 +106,7 @@ function WatchPage() {
 
   // UI state
   const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
   const [language, setLanguage] = useState<Language>(initialVideo?.language ?? "Kinyarwanda");
   const [subsOn, setSubsOn] = useState(false);
   const [showSubMenu, setShowSubMenu] = useState(false);
@@ -148,6 +149,35 @@ function WatchPage() {
     incrementVideoView(videoId);
     return () => { cancelled = true; };
   }, [videoId, initialVideo]);
+
+  // ── Like state ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isUuid(videoId)) { setLiked(false); setLikeCount(0); return; }
+    let cancelled = false;
+    getLikeState(videoId, user?.id ?? null).then((s) => {
+      if (cancelled) return;
+      setLiked(s.liked);
+      setLikeCount(s.count);
+    });
+    return () => { cancelled = true; };
+  }, [videoId, user?.id]);
+
+  const toggleLike = async () => {
+    if (!isUuid(videoId)) return;
+    if (!user) { toast.error("Sign in to like"); return; }
+    const next = !liked;
+    setLiked(next);
+    setLikeCount((c) => Math.max(0, c + (next ? 1 : -1)));
+    try {
+      if (next) await likeVideo(videoId, user.id);
+      else await unlikeVideo(videoId, user.id);
+    } catch {
+      // revert on failure
+      setLiked(!next);
+      setLikeCount((c) => Math.max(0, c + (next ? -1 : 1)));
+      toast.error("Couldn't update like");
+    }
+  };
 
   // ── Restore prefs from localStorage ────────────────────────────────────────
   useEffect(() => {
@@ -462,7 +492,7 @@ function WatchPage() {
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/70 via-transparent to-black/30 opacity-0 group-hover:opacity-100 transition-opacity" />
 
             <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition">
-              <ActionPill icon={Heart} label="Like" active={liked} onClick={() => setLiked((p) => !p)} />
+              <ActionPill icon={Heart} label={likeCount > 0 ? String(likeCount) : "Like"} active={liked} onClick={toggleLike} />
               <ActionPill icon={MessageCircle} label="Comments" active={showComments} onClick={() => setShowComments((p) => !p)} />
               <ActionPill icon={Share2} label="Share" onClick={handleShare} />
             </div>
@@ -719,10 +749,10 @@ function WatchPage() {
 
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => setLiked((p) => !p)}
+                  onClick={toggleLike}
                   className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${liked ? "border-accent text-accent bg-accent/10" : "border-border bg-surface hover:bg-surface-elevated"}`}
                 >
-                  <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} /> {liked ? "Liked" : "Like"}
+                  <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} /> {liked ? "Liked" : "Like"} {likeCount > 0 && <span className="tabular-nums opacity-80">{likeCount}</span>}
                 </button>
                 <button
                   onClick={() => setShowComments(true)}

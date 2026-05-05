@@ -165,6 +165,55 @@ export async function fetchProfileByUsername(username: string): Promise<CreatorP
   return (data as CreatorProfile) ?? null;
 }
 
+// ---- Likes ----
+
+export async function getLikeState(videoId: string, viewerId: string | null): Promise<{ liked: boolean; count: number }> {
+  if (!/^[0-9a-f-]{36}$/i.test(videoId)) return { liked: false, count: 0 };
+  const [{ count }, mine] = await Promise.all([
+    supabase.from("video_likes").select("*", { count: "exact", head: true }).eq("video_id", videoId),
+    viewerId
+      ? supabase.from("video_likes").select("user_id").eq("video_id", videoId).eq("user_id", viewerId).maybeSingle()
+      : Promise.resolve({ data: null } as { data: null }),
+  ]);
+  return { liked: !!(mine as { data: unknown }).data, count: count ?? 0 };
+}
+
+export async function likeVideo(videoId: string, viewerId: string): Promise<void> {
+  const { error } = await supabase.from("video_likes").insert({ video_id: videoId, user_id: viewerId });
+  if (error && !/duplicate/i.test(error.message)) throw error;
+}
+
+export async function unlikeVideo(videoId: string, viewerId: string): Promise<void> {
+  const { error } = await supabase.from("video_likes").delete().eq("video_id", videoId).eq("user_id", viewerId);
+  if (error) throw error;
+}
+
+// ---- Search ----
+
+export async function searchAll(q: string): Promise<{ videos: Video[]; creators: CreatorProfile[] }> {
+  const term = q.trim();
+  if (!term) return { videos: [], creators: [] };
+  const like = `%${term.replace(/[%_]/g, (m) => "\\" + m)}%`;
+  const [vRes, cRes] = await Promise.all([
+    supabase
+      .from("videos")
+      .select("*, profiles(display_name, username, avatar_url)")
+      .eq("visibility", "public")
+      .eq("status", "ready")
+      .or(`title.ilike.${like},description.ilike.${like}`)
+      .order("created_at", { ascending: false })
+      .limit(40),
+    supabase
+      .from("profiles")
+      .select("id, username, display_name, avatar_url, banner_url, bio")
+      .or(`username.ilike.${like},display_name.ilike.${like}`)
+      .limit(20),
+  ]);
+  const videos = ((vRes.data as unknown as DbVideo[]) ?? []).map(dbToVideo);
+  const creators = (cRes.data as CreatorProfile[]) ?? [];
+  return { videos, creators };
+}
+
 export async function fetchVideosByOwner(ownerId: string): Promise<Video[]> {
   const { data, error } = await supabase
     .from("videos")
