@@ -14,6 +14,7 @@ import { Route as TrendingRouteImport } from './routes/trending'
 import { Route as StudioRouteImport } from './routes/studio'
 import { Route as ShortsRouteImport } from './routes/shorts'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SearchRouteImport } from './routes/search'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MusicRouteImport } from './routes/music'
 import { Route as MoviesRouteImport } from './routes/movies'
@@ -45,6 +46,11 @@ const ShortsRoute = ShortsRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/movies': typeof MoviesRoute
   '/music': typeof MusicRoute
   '/profile': typeof ProfileRoute
+  '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
   '/studio': typeof StudioRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/movies': typeof MoviesRoute
   '/music': typeof MusicRoute
   '/profile': typeof ProfileRoute
+  '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
   '/studio': typeof StudioRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/movies': typeof MoviesRoute
   '/music': typeof MusicRoute
   '/profile': typeof ProfileRoute
+  '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
   '/studio': typeof StudioRoute
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/movies'
     | '/music'
     | '/profile'
+    | '/search'
     | '/settings'
     | '/shorts'
     | '/studio'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/movies'
     | '/music'
     | '/profile'
+    | '/search'
     | '/settings'
     | '/shorts'
     | '/studio'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/movies'
     | '/music'
     | '/profile'
+    | '/search'
     | '/settings'
     | '/shorts'
     | '/studio'
@@ -177,6 +189,7 @@ export interface RootRouteChildren {
   MoviesRoute: typeof MoviesRoute
   MusicRoute: typeof MusicRoute
   ProfileRoute: typeof ProfileRoute
+  SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   ShortsRoute: typeof ShortsRoute
   StudioRoute: typeof StudioRoute
@@ -221,6 +234,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -281,6 +301,7 @@ const rootRouteChildren: RootRouteChildren = {
   MoviesRoute: MoviesRoute,
   MusicRoute: MusicRoute,
   ProfileRoute: ProfileRoute,
+  SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   ShortsRoute: ShortsRoute,
   StudioRoute: StudioRoute,
