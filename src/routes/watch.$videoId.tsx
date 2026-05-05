@@ -106,6 +106,7 @@ function WatchPage() {
 
   // UI state
   const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
   const [language, setLanguage] = useState<Language>(initialVideo?.language ?? "Kinyarwanda");
   const [subsOn, setSubsOn] = useState(false);
   const [showSubMenu, setShowSubMenu] = useState(false);
