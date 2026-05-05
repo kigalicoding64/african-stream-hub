@@ -366,9 +366,18 @@ function UploadPage() {
             <p className="text-sm text-muted-foreground mt-1">
               Videos up to {fmtLimit(MAX_VIDEO_MB)} · MP3 tracks up to {fmtLimit(MAX_AUDIO_MB)} · Bulk supported
             </p>
-            <span className="mt-4 inline-flex rounded-full px-5 py-2 text-sm font-bold text-primary-foreground" style={{ background: "var(--gradient-brand)" }}>
-              Choose files
-            </span>
+            <div className="mt-4 flex flex-wrap gap-2 justify-center">
+              <span className="inline-flex rounded-full px-5 py-2 text-sm font-bold text-primary-foreground" style={{ background: "var(--gradient-brand)" }}>
+                Choose files
+              </span>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); folderInputRef.current?.click(); }}
+                className="inline-flex rounded-full px-5 py-2 text-sm font-bold border border-border bg-background hover:bg-surface-elevated"
+              >
+                Pick a folder (first 100)
+              </button>
+            </div>
             <input
               ref={inputRef}
               type="file"
@@ -376,6 +385,21 @@ function UploadPage() {
               multiple
               className="hidden"
               onChange={(e) => e.target.files && addFiles(e.target.files)}
+            />
+            <input
+              ref={folderInputRef}
+              type="file"
+              // @ts-expect-error – non-standard but widely supported
+              webkitdirectory=""
+              directory=""
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (!e.target.files) return;
+                const all = Array.from(e.target.files).filter((f) => detectMediaType(f) !== null);
+                addFiles(all);
+                e.target.value = "";
+              }}
             />
           </div>
         </label>
