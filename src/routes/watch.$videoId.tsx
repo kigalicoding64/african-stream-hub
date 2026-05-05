@@ -21,7 +21,7 @@ import {
 import { AppLayout } from "@/components/AppLayout";
 import { VideoCard } from "@/components/VideoCard";
 import { getVideoById, videos as mockVideos, type Language, type Video } from "@/data/videos";
-import { fetchVideoById, fetchAllFeed, incrementVideoView } from "@/lib/videos-api";
+import { fetchVideoById, fetchAllFeed, incrementVideoView, getLikeState, likeVideo, unlikeVideo } from "@/lib/videos-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSettings } from "@/contexts/SettingsContext";
