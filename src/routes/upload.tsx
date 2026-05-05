@@ -138,8 +138,14 @@ function UploadPage() {
     return { mediaType: mt };
   };
 
+  const MAX_BATCH = 100;
   const addFiles = async (files: FileList | File[]) => {
-    const arr = Array.from(files);
+    let arr = Array.from(files);
+    let truncated = 0;
+    if (arr.length > MAX_BATCH) {
+      truncated = arr.length - MAX_BATCH;
+      arr = arr.slice(0, MAX_BATCH);
+    }
     const accepted: QueueItem[] = [];
     const errors: string[] = [];
     for (const f of arr) {
