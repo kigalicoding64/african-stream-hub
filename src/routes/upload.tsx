@@ -177,6 +177,7 @@ function UploadPage() {
       toast.error(`${errors.length} file(s) skipped`, { description: shown + more });
     }
     if (accepted.length) toast.success(`Added ${accepted.length} file(s) to queue`);
+    if (truncated > 0) toast(`Only the first ${MAX_BATCH} files were queued`, { description: `${truncated} more skipped — add them after this batch finishes.` });
   };
 
   const removeItem = (id: string) => {
