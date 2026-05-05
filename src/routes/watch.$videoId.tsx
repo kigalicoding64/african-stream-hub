@@ -150,6 +150,35 @@ function WatchPage() {
     return () => { cancelled = true; };
   }, [videoId, initialVideo]);
 
+  // ── Like state ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isUuid(videoId)) { setLiked(false); setLikeCount(0); return; }
+    let cancelled = false;
+    getLikeState(videoId, user?.id ?? null).then((s) => {
+      if (cancelled) return;
+      setLiked(s.liked);
+      setLikeCount(s.count);
+    });
+    return () => { cancelled = true; };
+  }, [videoId, user?.id]);
+
+  const toggleLike = async () => {
+    if (!isUuid(videoId)) return;
+    if (!user) { toast.error("Sign in to like"); return; }
+    const next = !liked;
+    setLiked(next);
+    setLikeCount((c) => Math.max(0, c + (next ? 1 : -1)));
+    try {
+      if (next) await likeVideo(videoId, user.id);
+      else await unlikeVideo(videoId, user.id);
+    } catch {
+      // revert on failure
+      setLiked(!next);
+      setLikeCount((c) => Math.max(0, c + (next ? -1 : 1)));
+      toast.error("Couldn't update like");
+    }
+  };
+
   // ── Restore prefs from localStorage ────────────────────────────────────────
   useEffect(() => {
     const prefs = loadPrefs(videoId);
