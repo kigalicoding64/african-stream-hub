@@ -749,10 +749,10 @@ function WatchPage() {
 
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => setLiked((p) => !p)}
+                  onClick={toggleLike}
                   className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${liked ? "border-accent text-accent bg-accent/10" : "border-border bg-surface hover:bg-surface-elevated"}`}
                 >
-                  <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} /> {liked ? "Liked" : "Like"}
+                  <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} /> {liked ? "Liked" : "Like"} {likeCount > 0 && <span className="tabular-nums opacity-80">{likeCount}</span>}
                 </button>
                 <button
                   onClick={() => setShowComments(true)}
