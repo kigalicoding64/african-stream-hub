@@ -117,6 +117,7 @@ function UploadPage() {
   const [globalDescription, setGlobalDescription] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const queueRef = useRef<QueueItem[]>([]);
   const runningRef = useRef(false);
   queueRef.current = queue;
@@ -138,8 +139,14 @@ function UploadPage() {
     return { mediaType: mt };
   };
 
+  const MAX_BATCH = 100;
   const addFiles = async (files: FileList | File[]) => {
-    const arr = Array.from(files);
+    let arr = Array.from(files);
+    let truncated = 0;
+    if (arr.length > MAX_BATCH) {
+      truncated = arr.length - MAX_BATCH;
+      arr = arr.slice(0, MAX_BATCH);
+    }
     const accepted: QueueItem[] = [];
     const errors: string[] = [];
     for (const f of arr) {
@@ -171,6 +178,7 @@ function UploadPage() {
       toast.error(`${errors.length} file(s) skipped`, { description: shown + more });
     }
     if (accepted.length) toast.success(`Added ${accepted.length} file(s) to queue`);
+    if (truncated > 0) toast(`Only the first ${MAX_BATCH} files were queued`, { description: `${truncated} more skipped — add them after this batch finishes.` });
   };
 
   const removeItem = (id: string) => {
@@ -359,9 +367,18 @@ function UploadPage() {
             <p className="text-sm text-muted-foreground mt-1">
               Videos up to {fmtLimit(MAX_VIDEO_MB)} · MP3 tracks up to {fmtLimit(MAX_AUDIO_MB)} · Bulk supported
             </p>
-            <span className="mt-4 inline-flex rounded-full px-5 py-2 text-sm font-bold text-primary-foreground" style={{ background: "var(--gradient-brand)" }}>
-              Choose files
-            </span>
+            <div className="mt-4 flex flex-wrap gap-2 justify-center">
+              <span className="inline-flex rounded-full px-5 py-2 text-sm font-bold text-primary-foreground" style={{ background: "var(--gradient-brand)" }}>
+                Choose files
+              </span>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); folderInputRef.current?.click(); }}
+                className="inline-flex rounded-full px-5 py-2 text-sm font-bold border border-border bg-background hover:bg-surface-elevated"
+              >
+                Pick a folder (first 100)
+              </button>
+            </div>
             <input
               ref={inputRef}
               type="file"
@@ -369,6 +386,21 @@ function UploadPage() {
               multiple
               className="hidden"
               onChange={(e) => e.target.files && addFiles(e.target.files)}
+            />
+            <input
+              ref={folderInputRef}
+              type="file"
+              // @ts-expect-error – non-standard but widely supported
+              webkitdirectory=""
+              directory=""
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (!e.target.files) return;
+                const all = Array.from(e.target.files).filter((f) => detectMediaType(f) !== null);
+                addFiles(all);
+                e.target.value = "";
+              }}
             />
           </div>
         </label>
