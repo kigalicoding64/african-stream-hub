@@ -1,6 +1,6 @@
 import type { Category } from "@/data/videos";
 
-const categories: ("All" | Category)[] = ["All", "Music", "Comedy", "Films", "Agasobanuye"];
+const categories: Array<"All" | "Popular Africa" | Category> = ["All", "Popular Africa", "Music", "Comedy", "Films", "Agasobanuye"];
 
 export function CategoryFilter({ active, onChange }: { active: string; onChange: (c: string) => void }) {
   return (

@@ -4,6 +4,7 @@ import { Loader2, Film, UserPlus, UserCheck } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { VideoCard } from "@/components/VideoCard";
 import { fetchProfileByUsername, fetchVideosByOwner, getFollowState, followCreator, unfollowCreator, type CreatorProfile } from "@/lib/videos-api";
+import { findMockCreator } from "@/data/videos";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import type { Video } from "@/data/videos";
@@ -39,6 +40,23 @@ function CreatorPage() {
       const p = await fetchProfileByUsername(username);
       if (cancelled) return;
       if (!p) {
+        // Fallback: seeded mock creator from the Popular Africa catalog
+        const mock = findMockCreator(username);
+        if (mock) {
+          setProfile({
+            id: `mock:${mock.username}`,
+            username: mock.username,
+            display_name: mock.display_name,
+            avatar_url: null,
+            banner_url: null,
+            bio: `Featured creator on IBONA — ${mock.videos.length} popular African ${mock.videos.length === 1 ? "video" : "videos"}.`,
+          });
+          setVideos(mock.videos);
+          setFollowing(false);
+          setFollowers(0);
+          setLoading(false);
+          return;
+        }
         setNotFound(true);
         setLoading(false);
         return;
@@ -59,6 +77,7 @@ function CreatorPage() {
   }, [username, user?.id]);
 
   const isOwnProfile = !!user && !!profile && user.id === profile.id;
+  const isMockProfile = !!profile && profile.id.startsWith("mock:");
 
   const toggleFollow = async () => {
     if (!profile) return;
@@ -135,7 +154,7 @@ function CreatorPage() {
             )}
             {profile.bio && <p className="mt-2 opacity-95 max-w-xl">{profile.bio}</p>}
           </div>
-          {!isOwnProfile && (
+          {!isOwnProfile && !isMockProfile && (
             <button
               onClick={toggleFollow}
               disabled={followBusy}

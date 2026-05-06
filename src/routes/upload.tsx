@@ -110,8 +110,16 @@ function probeDuration(f: File, mediaType: MediaType): Promise<number> {
   });
 }
 
+interface RejectedFile {
+  id: string;
+  name: string;
+  sizeMb: number;
+  reason: string;
+}
+
 function UploadPage() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [rejected, setRejected] = useState<RejectedFile[]>([]);
   const [defaultLang, setDefaultLang] = useState<Language>("Kinyarwanda");
   const [defaultCategory, setDefaultCategory] = useState<Category>("Music");
   const [globalDescription, setGlobalDescription] = useState("");
@@ -129,12 +137,12 @@ function UploadPage() {
   /** Returns null if file is valid for upload, otherwise a human-readable reason. */
   const validateFile = (f: File): { mediaType: MediaType } | { error: string } => {
     const mt = detectMediaType(f);
-    if (!mt) return { error: `${f.name}: unsupported type — only video files and MP3 audio are allowed` };
-    if (f.size === 0) return { error: `${f.name}: file is empty` };
+    if (!mt) return { error: `Unsupported type — only video files and MP3 audio are allowed` };
+    if (f.size === 0) return { error: `File is empty` };
     const mb = f.size / (1024 * 1024);
     const limit = mt === "video" ? MAX_VIDEO_MB : MAX_AUDIO_MB;
     if (mb > limit) {
-      return { error: `${f.name}: too large (${mb.toFixed(1)} MB) — ${mt === "video" ? `videos must be under ${fmtLimit(MAX_VIDEO_MB)}` : `audio must be under ${fmtLimit(MAX_AUDIO_MB)}`}` };
+      return { error: `Too large (${mb.toFixed(1)} MB) — ${mt === "video" ? `videos must be under ${fmtLimit(MAX_VIDEO_MB)}` : `audio must be under ${fmtLimit(MAX_AUDIO_MB)}`}` };
     }
     return { mediaType: mt };
   };
@@ -148,10 +156,18 @@ function UploadPage() {
       arr = arr.slice(0, MAX_BATCH);
     }
     const accepted: QueueItem[] = [];
-    const errors: string[] = [];
+    const newRejected: RejectedFile[] = [];
     for (const f of arr) {
       const v = validateFile(f);
-      if ("error" in v) { errors.push(v.error); continue; }
+      if ("error" in v) {
+        newRejected.push({
+          id: crypto.randomUUID(),
+          name: f.name,
+          sizeMb: f.size / (1024 * 1024),
+          reason: v.error,
+        });
+        continue;
+      }
       const mt = v.mediaType;
       const dur = await probeDuration(f, mt);
       accepted.push({
@@ -171,15 +187,15 @@ function UploadPage() {
       });
     }
     if (accepted.length) setQueue((q) => [...q, ...accepted]);
-    if (errors.length) {
-      // Show up to 3 specific reasons; collapse the rest
-      const shown = errors.slice(0, 3).join("\n");
-      const more = errors.length > 3 ? `\n…and ${errors.length - 3} more` : "";
-      toast.error(`${errors.length} file(s) skipped`, { description: shown + more });
-    }
-    if (accepted.length) toast.success(`Added ${accepted.length} file(s) to queue`);
-    if (truncated > 0) toast(`Only the first ${MAX_BATCH} files were queued`, { description: `${truncated} more skipped — add them after this batch finishes.` });
+    if (newRejected.length) setRejected((r) => [...r, ...newRejected]);
+    if (accepted.length) toast.success(`${accepted.length} file(s) ready to review`);
+    if (newRejected.length) toast.error(`${newRejected.length} file(s) need attention`, { description: "See the Rejected list below to fix or remove them." });
+    if (truncated > 0) toast(`Only the first ${MAX_BATCH} files were picked`, { description: `${truncated} more skipped — add them after this batch finishes.` });
   };
+
+  const removeRejected = (id: string) => setRejected((r) => r.filter((x) => x.id !== id));
+  const clearRejected = () => setRejected([]);
+
 
   const removeItem = (id: string) => {
     const it = queue.find((q) => q.id === id);
@@ -349,7 +365,7 @@ function UploadPage() {
       <div className="max-w-5xl mx-auto py-8 animate-fade-in">
         <div className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Creator Studio</div>
         <h1 className="text-3xl sm:text-5xl font-black tracking-tight mb-2">Upload to IBONA</h1>
-        <p className="text-muted-foreground mb-8">Drop in videos or up to 100+ MP3 tracks at once. We'll upload 3 in parallel with auto-retry support.</p>
+        <p className="text-muted-foreground mb-8">Pick up to 100 files. We'll show a review list with any validation errors so you can remove items before upload — then 3 will upload in parallel with auto-retry.</p>
 
         {/* Drop zone */}
         <label
@@ -405,6 +421,44 @@ function UploadPage() {
           </div>
         </label>
 
+        {/* Rejected files (validation errors) */}
+        {rejected.length > 0 && (
+          <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 mb-4">
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <div className="text-sm font-bold text-destructive inline-flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                {rejected.length} file{rejected.length === 1 ? "" : "s"} rejected
+              </div>
+              <button
+                onClick={clearRejected}
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+              >
+                Dismiss all
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Fix and re-add these files, or dismiss them below. They are not part of the upload queue.
+            </p>
+            <ul className="space-y-1.5 max-h-56 overflow-auto pr-1">
+              {rejected.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg bg-background/60 px-3 py-2 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold truncate">{r.name}</div>
+                    <div className="text-muted-foreground truncate">{r.sizeMb.toFixed(1)} MB · {r.reason}</div>
+                  </div>
+                  <button
+                    onClick={() => removeRejected(r.id)}
+                    className="shrink-0 h-7 w-7 rounded-full hover:bg-muted text-muted-foreground flex items-center justify-center"
+                    title="Remove"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Defaults panel */}
         {queue.length > 0 && (
           <div className="rounded-2xl border border-border bg-surface p-4 mb-4 grid sm:grid-cols-3 gap-4">
@@ -426,6 +480,12 @@ function UploadPage() {
           </div>
         )}
 
+        {/* Review & queue header */}
+        {queue.length > 0 && (
+          <div className="text-xs font-bold uppercase tracking-widest text-primary mb-2">
+            Step 2 — Review &amp; remove any items, then start
+          </div>
+        )}
         {/* Queue header */}
         {queue.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">

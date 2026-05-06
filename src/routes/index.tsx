@@ -5,7 +5,7 @@ import { Hero } from "@/components/Hero";
 import { VideoRail } from "@/components/VideoRail";
 import { VideoCard } from "@/components/VideoCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
-import { videos as mockVideos, type Video } from "@/data/videos";
+import { videos as mockVideos, isPopularAfrica, type Video } from "@/data/videos";
 import { fetchPrioritizedFeed } from "@/lib/videos-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -46,10 +46,11 @@ function Index() {
 
   const featured = feed[0] ?? mockVideos[0];
   const trending = useMemo(() => feed.slice(0, 6), [feed]);
-  const filtered = useMemo(
-    () => (category === "All" ? feed : feed.filter((v) => v.category === category)),
-    [feed, category]
-  );
+  const filtered = useMemo(() => {
+    if (category === "All") return feed;
+    if (category === "Popular Africa") return feed.filter(isPopularAfrica);
+    return feed.filter((v) => v.category === category);
+  }, [feed, category]);
 
   return (
     <AppLayout>
