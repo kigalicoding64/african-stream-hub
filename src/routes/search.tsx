@@ -109,11 +109,11 @@ function SearchPage() {
           </section>
         )}
 
-        {videos.length > 0 && (
+        {shownVideos.length > 0 && (
           <section>
-            <h2 className="font-bold mb-3">Content</h2>
+            <h2 className="font-bold mb-3">Content {popularOnly && <span className="text-xs font-medium text-muted-foreground ml-1">· Popular Africa only</span>}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-              {videos.map((v) => <VideoCard key={v.id} video={v} />)}
+              {shownVideos.map((v) => <VideoCard key={v.id} video={v} />)}
             </div>
           </section>
         )}
