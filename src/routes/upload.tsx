@@ -480,6 +480,12 @@ function UploadPage() {
           </div>
         )}
 
+        {/* Review & queue header */}
+        {queue.length > 0 && (
+          <div className="text-xs font-bold uppercase tracking-widest text-primary mb-2">
+            Step 2 — Review &amp; remove any items, then start
+          </div>
+        )}
         {/* Queue header */}
         {queue.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
