@@ -421,6 +421,44 @@ function UploadPage() {
           </div>
         </label>
 
+        {/* Rejected files (validation errors) */}
+        {rejected.length > 0 && (
+          <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 mb-4">
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <div className="text-sm font-bold text-destructive inline-flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                {rejected.length} file{rejected.length === 1 ? "" : "s"} rejected
+              </div>
+              <button
+                onClick={clearRejected}
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+              >
+                Dismiss all
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Fix and re-add these files, or dismiss them below. They are not part of the upload queue.
+            </p>
+            <ul className="space-y-1.5 max-h-56 overflow-auto pr-1">
+              {rejected.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg bg-background/60 px-3 py-2 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold truncate">{r.name}</div>
+                    <div className="text-muted-foreground truncate">{r.sizeMb.toFixed(1)} MB · {r.reason}</div>
+                  </div>
+                  <button
+                    onClick={() => removeRejected(r.id)}
+                    className="shrink-0 h-7 w-7 rounded-full hover:bg-muted text-muted-foreground flex items-center justify-center"
+                    title="Remove"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Defaults panel */}
         {queue.length > 0 && (
           <div className="rounded-2xl border border-border bg-surface p-4 mb-4 grid sm:grid-cols-3 gap-4">
