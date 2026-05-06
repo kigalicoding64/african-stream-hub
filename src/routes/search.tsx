@@ -28,6 +28,7 @@ function SearchPage() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [creators, setCreators] = useState<CreatorProfile[]>([]);
   const [loading, setLoading] = useState(false);
+  const [popularOnly, setPopularOnly] = useState(false);
 
   useEffect(() => {
     if (!q.trim()) { setVideos([]); setCreators([]); return; }
@@ -42,14 +43,30 @@ function SearchPage() {
     return () => { cancelled = true; };
   }, [q]);
 
+  const shownVideos = useMemo(
+    () => (popularOnly ? videos.filter(isPopularAfrica) : videos),
+    [videos, popularOnly],
+  );
+
   return (
     <AppLayout>
       <div className="animate-fade-in space-y-8">
-        <div className="flex items-center gap-3">
-          <SearchIcon className="h-5 w-5 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">
-            {q ? <>Results for <span className="text-primary">"{q}"</span></> : "Search"}
-          </h1>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <SearchIcon className="h-5 w-5 text-primary" />
+            <h1 className="text-2xl font-bold tracking-tight">
+              {q ? <>Results for <span className="text-primary">"{q}"</span></> : "Search"}
+            </h1>
+          </div>
+          {q && (
+            <button
+              onClick={() => setPopularOnly((v) => !v)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold border transition ${popularOnly ? "text-primary-foreground border-transparent shadow-[var(--shadow-glow)]" : "border-border bg-surface hover:bg-surface-elevated"}`}
+              style={popularOnly ? { background: "var(--gradient-brand)" } : undefined}
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Popular Africa
+            </button>
+          )}
         </div>
 
         {!q && <p className="text-muted-foreground">Type in the search bar to find creators or content.</p>}
