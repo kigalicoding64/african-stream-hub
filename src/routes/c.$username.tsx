@@ -4,6 +4,7 @@ import { Loader2, Film, UserPlus, UserCheck } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { VideoCard } from "@/components/VideoCard";
 import { fetchProfileByUsername, fetchVideosByOwner, getFollowState, followCreator, unfollowCreator, type CreatorProfile } from "@/lib/videos-api";
+import { findMockCreator } from "@/data/videos";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import type { Video } from "@/data/videos";
