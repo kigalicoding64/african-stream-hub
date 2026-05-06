@@ -202,16 +202,44 @@ export async function searchAll(q: string): Promise<{ videos: Video[]; creators:
       .eq("status", "ready")
       .or(`title.ilike.${like},description.ilike.${like}`)
       .order("created_at", { ascending: false })
-      .limit(40),
+      .limit(100),
     supabase
       .from("profiles")
       .select("id, username, display_name, avatar_url, banner_url, bio")
       .or(`username.ilike.${like},display_name.ilike.${like}`)
-      .limit(20),
+      .limit(40),
   ]);
-  const videos = ((vRes.data as unknown as DbVideo[]) ?? []).map(dbToVideo);
-  const creators = (cRes.data as CreatorProfile[]) ?? [];
-  return { videos, creators };
+  const dbVideos = ((vRes.data as unknown as DbVideo[]) ?? []).map(dbToVideo);
+  const dbCreators = (cRes.data as CreatorProfile[]) ?? [];
+
+  // Also search the seeded mock catalog so the 100+ "Popular Africa" items are findable.
+  const t = term.toLowerCase();
+  const mockMatchVideos = mockVideos.filter((v) =>
+    v.title.toLowerCase().includes(t) ||
+    v.description.toLowerCase().includes(t) ||
+    v.creator.toLowerCase().includes(t),
+  );
+  const mockCreatorMap = new Map<string, CreatorProfile>();
+  for (const v of mockVideos) {
+    if (!v.creatorUsername) continue;
+    if (!v.creator.toLowerCase().includes(t) && !v.creatorUsername.toLowerCase().includes(t)) continue;
+    if (mockCreatorMap.has(v.creatorUsername)) continue;
+    mockCreatorMap.set(v.creatorUsername, {
+      id: `mock:${v.creatorUsername}`,
+      username: v.creatorUsername,
+      display_name: v.creator,
+      avatar_url: null,
+      banner_url: null,
+      bio: null,
+    });
+  }
+  const seenUsernames = new Set(dbCreators.map((c) => c.username));
+  const mergedCreators = [
+    ...dbCreators,
+    ...Array.from(mockCreatorMap.values()).filter((c) => !seenUsernames.has(c.username)),
+  ];
+
+  return { videos: [...dbVideos, ...mockMatchVideos], creators: mergedCreators };
 }
 
 export async function fetchVideosByOwner(ownerId: string): Promise<Video[]> {
