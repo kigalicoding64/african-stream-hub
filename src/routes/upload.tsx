@@ -365,7 +365,7 @@ function UploadPage() {
       <div className="max-w-5xl mx-auto py-8 animate-fade-in">
         <div className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Creator Studio</div>
         <h1 className="text-3xl sm:text-5xl font-black tracking-tight mb-2">Upload to IBONA</h1>
-        <p className="text-muted-foreground mb-8">Drop in videos or up to 100+ MP3 tracks at once. We'll upload 3 in parallel with auto-retry support.</p>
+        <p className="text-muted-foreground mb-8">Pick up to 100 files. We'll show a review list with any validation errors so you can remove items before upload — then 3 will upload in parallel with auto-retry.</p>
 
         {/* Drop zone */}
         <label
