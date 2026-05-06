@@ -77,11 +77,12 @@ function SearchPage() {
           </div>
         )}
 
-        {!loading && q && creators.length === 0 && videos.length === 0 && (
+        {!loading && q && creators.length === 0 && shownVideos.length === 0 && (
           <div className="rounded-2xl border border-dashed border-border bg-surface p-10 text-center text-muted-foreground">
-            No matches found.
+            {popularOnly ? "No Popular Africa matches — try toggling off the filter." : "No matches found."}
           </div>
         )}
+
 
         {creators.length > 0 && (
           <section>
