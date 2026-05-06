@@ -77,6 +77,7 @@ function CreatorPage() {
   }, [username, user?.id]);
 
   const isOwnProfile = !!user && !!profile && user.id === profile.id;
+  const isMockProfile = !!profile && profile.id.startsWith("mock:");
 
   const toggleFollow = async () => {
     if (!profile) return;
