@@ -40,6 +40,23 @@ function CreatorPage() {
       const p = await fetchProfileByUsername(username);
       if (cancelled) return;
       if (!p) {
+        // Fallback: seeded mock creator from the Popular Africa catalog
+        const mock = findMockCreator(username);
+        if (mock) {
+          setProfile({
+            id: `mock:${mock.username}`,
+            username: mock.username,
+            display_name: mock.display_name,
+            avatar_url: null,
+            banner_url: null,
+            bio: `Featured creator on IBONA — ${mock.videos.length} popular African ${mock.videos.length === 1 ? "video" : "videos"}.`,
+          });
+          setVideos(mock.videos);
+          setFollowing(false);
+          setFollowers(0);
+          setLoading(false);
+          return;
+        }
         setNotFound(true);
         setLoading(false);
         return;
