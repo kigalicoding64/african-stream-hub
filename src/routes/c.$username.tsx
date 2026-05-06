@@ -154,7 +154,7 @@ function CreatorPage() {
             )}
             {profile.bio && <p className="mt-2 opacity-95 max-w-xl">{profile.bio}</p>}
           </div>
-          {!isOwnProfile && (
+          {!isOwnProfile && !isMockProfile && (
             <button
               onClick={toggleFollow}
               disabled={followBusy}
