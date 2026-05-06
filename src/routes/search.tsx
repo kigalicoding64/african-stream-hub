@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { Loader2, Search as SearchIcon } from "lucide-react";
+import { Loader2, Search as SearchIcon, Sparkles } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { VideoCard } from "@/components/VideoCard";
 import { searchAll, type CreatorProfile } from "@/lib/videos-api";
-import type { Video } from "@/data/videos";
+import { isPopularAfrica, type Video } from "@/data/videos";
 
 const schema = z.object({
   q: fallback(z.string(), "").default(""),
