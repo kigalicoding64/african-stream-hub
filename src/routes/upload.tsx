@@ -110,8 +110,16 @@ function probeDuration(f: File, mediaType: MediaType): Promise<number> {
   });
 }
 
+interface RejectedFile {
+  id: string;
+  name: string;
+  sizeMb: number;
+  reason: string;
+}
+
 function UploadPage() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [rejected, setRejected] = useState<RejectedFile[]>([]);
   const [defaultLang, setDefaultLang] = useState<Language>("Kinyarwanda");
   const [defaultCategory, setDefaultCategory] = useState<Category>("Music");
   const [globalDescription, setGlobalDescription] = useState("");
@@ -129,12 +137,12 @@ function UploadPage() {
   /** Returns null if file is valid for upload, otherwise a human-readable reason. */
   const validateFile = (f: File): { mediaType: MediaType } | { error: string } => {
     const mt = detectMediaType(f);
-    if (!mt) return { error: `${f.name}: unsupported type — only video files and MP3 audio are allowed` };
-    if (f.size === 0) return { error: `${f.name}: file is empty` };
+    if (!mt) return { error: `Unsupported type — only video files and MP3 audio are allowed` };
+    if (f.size === 0) return { error: `File is empty` };
     const mb = f.size / (1024 * 1024);
     const limit = mt === "video" ? MAX_VIDEO_MB : MAX_AUDIO_MB;
     if (mb > limit) {
-      return { error: `${f.name}: too large (${mb.toFixed(1)} MB) — ${mt === "video" ? `videos must be under ${fmtLimit(MAX_VIDEO_MB)}` : `audio must be under ${fmtLimit(MAX_AUDIO_MB)}`}` };
+      return { error: `Too large (${mb.toFixed(1)} MB) — ${mt === "video" ? `videos must be under ${fmtLimit(MAX_VIDEO_MB)}` : `audio must be under ${fmtLimit(MAX_AUDIO_MB)}`}` };
     }
     return { mediaType: mt };
   };
@@ -148,10 +156,18 @@ function UploadPage() {
       arr = arr.slice(0, MAX_BATCH);
     }
     const accepted: QueueItem[] = [];
-    const errors: string[] = [];
+    const newRejected: RejectedFile[] = [];
     for (const f of arr) {
       const v = validateFile(f);
-      if ("error" in v) { errors.push(v.error); continue; }
+      if ("error" in v) {
+        newRejected.push({
+          id: crypto.randomUUID(),
+          name: f.name,
+          sizeMb: f.size / (1024 * 1024),
+          reason: v.error,
+        });
+        continue;
+      }
       const mt = v.mediaType;
       const dur = await probeDuration(f, mt);
       accepted.push({
@@ -171,15 +187,15 @@ function UploadPage() {
       });
     }
     if (accepted.length) setQueue((q) => [...q, ...accepted]);
-    if (errors.length) {
-      // Show up to 3 specific reasons; collapse the rest
-      const shown = errors.slice(0, 3).join("\n");
-      const more = errors.length > 3 ? `\n…and ${errors.length - 3} more` : "";
-      toast.error(`${errors.length} file(s) skipped`, { description: shown + more });
-    }
-    if (accepted.length) toast.success(`Added ${accepted.length} file(s) to queue`);
-    if (truncated > 0) toast(`Only the first ${MAX_BATCH} files were queued`, { description: `${truncated} more skipped — add them after this batch finishes.` });
+    if (newRejected.length) setRejected((r) => [...r, ...newRejected]);
+    if (accepted.length) toast.success(`${accepted.length} file(s) ready to review`);
+    if (newRejected.length) toast.error(`${newRejected.length} file(s) need attention`, { description: "See the Rejected list below to fix or remove them." });
+    if (truncated > 0) toast(`Only the first ${MAX_BATCH} files were picked`, { description: `${truncated} more skipped — add them after this batch finishes.` });
   };
+
+  const removeRejected = (id: string) => setRejected((r) => r.filter((x) => x.id !== id));
+  const clearRejected = () => setRejected([]);
+
 
   const removeItem = (id: string) => {
     const it = queue.find((q) => q.id === id);
