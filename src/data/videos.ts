@@ -287,6 +287,7 @@ function generateAfricanCatalog(): Video[] {
     id: `afr-${i + 1}`,
     title: s.title,
     creator: s.creator,
+    creatorUsername: slugifyCreator(s.creator),
     thumbnail: thumbs[i % thumbs.length],
     previewSrc: SAMPLE_PREVIEW,
     views: `${(0.2 + (i % 50) * 0.18).toFixed(1)}M`,
@@ -298,5 +299,26 @@ function generateAfricanCatalog(): Video[] {
   }));
 }
 
+export function slugifyCreator(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f']/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+/** True for any seeded "Popular Africa" catalog item. */
+export function isPopularAfrica(v: Video): boolean {
+  return v.id.startsWith("afr-");
+}
+
 export const getVideoById = (id: string) => videos.find((v) => v.id === id);
 export const getTrending = () => videos.slice().sort((a, b) => parseFloat(b.views) - parseFloat(a.views));
+
+/** Find a mock "creator" by slug — used as a fallback when no DB profile exists. */
+export function findMockCreator(username: string): { username: string; display_name: string; videos: Video[] } | null {
+  const matches = videos.filter((v) => v.creatorUsername === username);
+  if (matches.length === 0) return null;
+  return { username, display_name: matches[0].creator, videos: matches };
+}
