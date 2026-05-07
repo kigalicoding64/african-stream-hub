@@ -62,6 +62,7 @@ export function dbToVideo(v: DbVideo): Video {
     description: v.description ?? "",
     uploadedAt: relTime(v.created_at),
     mediaType: v.media_type ?? "video",
+    visibility: v.visibility === "private" ? "private" : "public",
   };
 }
 
@@ -190,26 +191,49 @@ export async function unlikeVideo(videoId: string, viewerId: string): Promise<vo
 
 // ---- Search ----
 
-export async function searchAll(q: string): Promise<{ videos: Video[]; creators: CreatorProfile[] }> {
+export async function searchAll(
+  q: string,
+  opts: { includeDrafts?: boolean; viewerId?: string | null } = {},
+): Promise<{ videos: Video[]; creators: CreatorProfile[] }> {
   const term = q.trim();
   if (!term) return { videos: [], creators: [] };
   const like = `%${term.replace(/[%_]/g, (m) => "\\" + m)}%`;
-  const [vRes, cRes] = await Promise.all([
-    supabase
-      .from("videos")
-      .select("*, profiles(display_name, username, avatar_url)")
-      .eq("visibility", "public")
-      .eq("status", "ready")
-      .or(`title.ilike.${like},description.ilike.${like}`)
-      .order("created_at", { ascending: false })
-      .limit(100),
+  const includeDrafts = !!opts.includeDrafts && !!opts.viewerId;
+
+  const publicVideosQ = supabase
+    .from("videos")
+    .select("*, profiles(display_name, username, avatar_url)")
+    .eq("visibility", "public")
+    .eq("status", "ready")
+    .or(`title.ilike.${like},description.ilike.${like}`)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const draftVideosQ = includeDrafts
+    ? supabase
+        .from("videos")
+        .select("*, profiles(display_name, username, avatar_url)")
+        .eq("owner_id", opts.viewerId!)
+        .neq("visibility", "public")
+        .or(`title.ilike.${like},description.ilike.${like}`)
+        .order("created_at", { ascending: false })
+        .limit(50)
+    : Promise.resolve({ data: [] as unknown[] } as { data: unknown[] });
+
+  const [vRes, dRes, cRes] = await Promise.all([
+    publicVideosQ,
+    draftVideosQ,
     supabase
       .from("profiles")
       .select("id, username, display_name, avatar_url, banner_url, bio")
       .or(`username.ilike.${like},display_name.ilike.${like}`)
       .limit(40),
   ]);
-  const dbVideos = ((vRes.data as unknown as DbVideo[]) ?? []).map(dbToVideo);
+  const dbVideos = [
+    ...(((dRes as { data: unknown }).data as DbVideo[] | null) ?? []).map(dbToVideo),
+    ...((vRes.data as unknown as DbVideo[]) ?? []).map(dbToVideo),
+  ];
+  
   const dbCreators = (cRes.data as CreatorProfile[]) ?? [];
 
   // Also search the seeded mock catalog so the 100+ "Popular Africa" items are findable.

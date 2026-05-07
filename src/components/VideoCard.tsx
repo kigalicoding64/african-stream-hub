@@ -94,6 +94,11 @@ export function VideoCard({ video, size = "default" }: Props) {
           <span className="rounded-md bg-background/70 backdrop-blur-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground">
             {video.category}
           </span>
+          {video.visibility === "private" && (
+            <span className="rounded-md bg-background/80 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 ring-1 ring-amber-400/40">
+              Draft
+            </span>
+          )}
         </div>
         <div className="absolute top-3 right-3">
           <span className="rounded-md px-2 py-0.5 text-[10px] font-bold text-primary-foreground" style={{ background: "var(--gradient-brand)" }}>

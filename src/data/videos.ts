@@ -27,6 +27,7 @@ export interface Video {
   description: string;
   uploadedAt: string;
   mediaType?: "video" | "audio";
+  visibility?: "public" | "private";
 }
 
 // Royalty-free preview clip (small, public test)
