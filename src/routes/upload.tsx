@@ -136,6 +136,18 @@ function UploadPage() {
     setQueue((q) => q.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   };
 
+  const publishDraft = async (id: string) => {
+    const it = queueRef.current.find((q) => q.id === id);
+    if (!it || !it.videoId || it.visibility !== "private") return;
+    const { error } = await supabase
+      .from("videos")
+      .update({ visibility: "public" })
+      .eq("id", it.videoId);
+    if (error) { toast.error("Couldn't publish", { description: error.message }); return; }
+    updateItem(id, { visibility: "public" });
+    toast.success("Now public", { description: "Visible on the public feed." });
+  };
+
   /** Returns null if file is valid for upload, otherwise a human-readable reason. */
   const validateFile = (f: File): { mediaType: MediaType } | { error: string } => {
     const mt = detectMediaType(f);
@@ -550,6 +562,7 @@ function UploadPage() {
               onCat={(c) => updateItem(it.id, { category: c })}
               onThumb={(f) => setItemThumb(it.id, f)}
               onVisibility={(v) => updateItem(it.id, { visibility: v })}
+              onPublish={() => publishDraft(it.id)}
             />
           ))}
         </div>
@@ -570,7 +583,7 @@ function UploadPage() {
 }
 
 function QueueRow({
-  item, onCancel, onRetry, onRemove, onTitle, onLang, onCat, onThumb, onVisibility,
+  item, onCancel, onRetry, onRemove, onTitle, onLang, onCat, onThumb, onVisibility, onPublish,
 }: {
   item: QueueItem;
   onCancel: () => void;
@@ -581,6 +594,7 @@ function QueueRow({
   onCat: (c: Category) => void;
   onThumb: (f: File | null) => void;
   onVisibility: (v: Visibility) => void;
+  onPublish: () => void | Promise<void>;
 }) {
   const thumbInput = useRef<HTMLInputElement>(null);
   const sizeMb = (item.file.size / (1024 * 1024)).toFixed(1);
@@ -675,6 +689,18 @@ function QueueRow({
             <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive flex items-start gap-2">
               <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <span className="flex-1">{item.error}</span>
+            </div>
+          )}
+
+          {item.status === "done" && item.visibility === "private" && item.videoId && (
+            <div className="pt-1">
+              <button
+                onClick={onPublish}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-[var(--shadow-glow)] hover:scale-105 transition"
+                style={{ background: "var(--gradient-brand)" }}
+              >
+                <Check className="h-3.5 w-3.5" /> Make Public
+              </button>
             </div>
           )}
         </div>
