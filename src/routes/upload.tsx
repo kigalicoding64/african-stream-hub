@@ -549,6 +549,7 @@ function UploadPage() {
               onLang={(l) => updateItem(it.id, { language: l })}
               onCat={(c) => updateItem(it.id, { category: c })}
               onThumb={(f) => setItemThumb(it.id, f)}
+              onVisibility={(v) => updateItem(it.id, { visibility: v })}
             />
           ))}
         </div>
