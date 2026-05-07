@@ -611,9 +611,14 @@ function QueueRow({
               ) : (
                 <div className="font-semibold text-sm truncate">{item.title}</div>
               )}
-              <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
+              <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
                 <Icon className="h-3 w-3" /> {item.mediaType.toUpperCase()} · {sizeMb} MB
-                {item.duration > 0 && <> · {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, "0")}</>}
+                {item.duration > 0 && <span>· {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, "0")}</span>}
+                <span className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${item.visibility === "private" ? "bg-amber-500/15 text-amber-400 ring-1 ring-amber-400/30" : "bg-secondary/20 text-secondary ring-1 ring-secondary/30"}`}>
+                  {item.status === "done"
+                    ? (item.visibility === "private" ? "Saved as draft" : "Published · Public")
+                    : (item.visibility === "private" ? "Private (draft)" : "Public")}
+                </span>
               </div>
             </div>
             <StatusPill status={item.status} progress={item.progress} />
