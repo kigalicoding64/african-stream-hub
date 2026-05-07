@@ -26,23 +26,25 @@ export const Route = createFileRoute("/search")({
 
 function SearchPage() {
   const { q } = Route.useSearch();
+  const { user } = useAuth();
   const [videos, setVideos] = useState<Video[]>([]);
   const [creators, setCreators] = useState<CreatorProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [popularOnly, setPopularOnly] = useState(false);
+  const [includeDrafts, setIncludeDrafts] = useState(false);
 
   useEffect(() => {
     if (!q.trim()) { setVideos([]); setCreators([]); return; }
     setLoading(true);
     let cancelled = false;
-    searchAll(q).then((r) => {
+    searchAll(q, { includeDrafts, viewerId: user?.id ?? null }).then((r) => {
       if (cancelled) return;
       setVideos(r.videos);
       setCreators(r.creators);
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [q]);
+  }, [q, includeDrafts, user?.id]);
 
   const shownVideos = useMemo(
     () => (popularOnly ? videos.filter(isPopularAfrica) : videos),
