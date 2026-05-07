@@ -136,6 +136,18 @@ function UploadPage() {
     setQueue((q) => q.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   };
 
+  const publishDraft = async (id: string) => {
+    const it = queueRef.current.find((q) => q.id === id);
+    if (!it || !it.videoId || it.visibility !== "private") return;
+    const { error } = await supabase
+      .from("videos")
+      .update({ visibility: "public" })
+      .eq("id", it.videoId);
+    if (error) { toast.error("Couldn't publish", { description: error.message }); return; }
+    updateItem(id, { visibility: "public" });
+    toast.success("Now public", { description: "Visible on the public feed." });
+  };
+
   /** Returns null if file is valid for upload, otherwise a human-readable reason. */
   const validateFile = (f: File): { mediaType: MediaType } | { error: string } => {
     const mt = detectMediaType(f);
