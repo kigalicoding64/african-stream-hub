@@ -28,6 +28,7 @@ type Category = (typeof CATEGORIES)[number];
 type Language = (typeof LANGUAGES)[number];
 type MediaType = "video" | "audio";
 type ItemStatus = "queued" | "uploading" | "done" | "error" | "cancelled";
+type Visibility = "public" | "private";
 
 const MAX_VIDEO_MB = 10240; // 10 GB
 const MAX_AUDIO_MB = 50;
