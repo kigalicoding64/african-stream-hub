@@ -28,6 +28,7 @@ type Category = (typeof CATEGORIES)[number];
 type Language = (typeof LANGUAGES)[number];
 type MediaType = "video" | "audio";
 type ItemStatus = "queued" | "uploading" | "done" | "error" | "cancelled";
+type Visibility = "public" | "private";
 
 const MAX_VIDEO_MB = 10240; // 10 GB
 const MAX_AUDIO_MB = 50;
@@ -52,6 +53,7 @@ interface QueueItem {
   error: string | null;
   controller: AbortController | null;
   duration: number;
+  visibility: Visibility;
   videoId?: string;
 }
 
@@ -184,6 +186,7 @@ function UploadPage() {
         error: null,
         controller: null,
         duration: dur,
+        visibility: "public",
       });
     }
     if (accepted.length) setQueue((q) => [...q, ...accepted]);
@@ -279,7 +282,7 @@ function UploadPage() {
           description: globalDescription.trim(),
           language: item.language,
           category: item.category,
-          visibility: "public",
+          visibility: item.visibility === "private" ? "private" : "public",
           status: "ready",
           video_url: pub.publicUrl,
           thumbnail_url: thumbUrl,
@@ -365,7 +368,7 @@ function UploadPage() {
       <div className="max-w-5xl mx-auto py-8 animate-fade-in">
         <div className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Creator Studio</div>
         <h1 className="text-3xl sm:text-5xl font-black tracking-tight mb-2">Upload to IBONA</h1>
-        <p className="text-muted-foreground mb-8">Pick up to 100 files. We'll show a review list with any validation errors so you can remove items before upload — then 3 will upload in parallel with auto-retry.</p>
+        <p className="text-muted-foreground mb-8">Pick up to 100 files. Review &amp; remove items, choose <span className="font-semibold text-foreground">Public</span> or <span className="font-semibold text-foreground">Private (draft)</span> per item, then 3 will upload in parallel with auto-retry.</p>
 
         {/* Drop zone */}
         <label
@@ -546,6 +549,7 @@ function UploadPage() {
               onLang={(l) => updateItem(it.id, { language: l })}
               onCat={(c) => updateItem(it.id, { category: c })}
               onThumb={(f) => setItemThumb(it.id, f)}
+              onVisibility={(v) => updateItem(it.id, { visibility: v })}
             />
           ))}
         </div>
@@ -566,7 +570,7 @@ function UploadPage() {
 }
 
 function QueueRow({
-  item, onCancel, onRetry, onRemove, onTitle, onLang, onCat, onThumb,
+  item, onCancel, onRetry, onRemove, onTitle, onLang, onCat, onThumb, onVisibility,
 }: {
   item: QueueItem;
   onCancel: () => void;
@@ -576,6 +580,7 @@ function QueueRow({
   onLang: (l: Language) => void;
   onCat: (c: Category) => void;
   onThumb: (f: File | null) => void;
+  onVisibility: (v: Visibility) => void;
 }) {
   const thumbInput = useRef<HTMLInputElement>(null);
   const sizeMb = (item.file.size / (1024 * 1024)).toFixed(1);
@@ -633,6 +638,11 @@ function QueueRow({
                 value={item.category}
                 options={[...CATEGORIES]}
                 onChange={(v) => onCat(v as Category)}
+              />
+              <MiniSelect
+                value={item.visibility}
+                options={["public", "private"]}
+                onChange={(v) => onVisibility(v as Visibility)}
               />
               <button
                 type="button"
