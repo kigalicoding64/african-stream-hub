@@ -570,7 +570,7 @@ function UploadPage() {
 }
 
 function QueueRow({
-  item, onCancel, onRetry, onRemove, onTitle, onLang, onCat, onThumb,
+  item, onCancel, onRetry, onRemove, onTitle, onLang, onCat, onThumb, onVisibility,
 }: {
   item: QueueItem;
   onCancel: () => void;
@@ -580,6 +580,7 @@ function QueueRow({
   onLang: (l: Language) => void;
   onCat: (c: Category) => void;
   onThumb: (f: File | null) => void;
+  onVisibility: (v: Visibility) => void;
 }) {
   const thumbInput = useRef<HTMLInputElement>(null);
   const sizeMb = (item.file.size / (1024 * 1024)).toFixed(1);
