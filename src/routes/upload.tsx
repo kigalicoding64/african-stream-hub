@@ -186,6 +186,7 @@ function UploadPage() {
         error: null,
         controller: null,
         duration: dur,
+        visibility: "public",
       });
     }
     if (accepted.length) setQueue((q) => [...q, ...accepted]);
