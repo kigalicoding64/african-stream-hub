@@ -639,6 +639,11 @@ function QueueRow({
                 options={[...CATEGORIES]}
                 onChange={(v) => onCat(v as Category)}
               />
+              <MiniSelect
+                value={item.visibility}
+                options={["public", "private"]}
+                onChange={(v) => onVisibility(v as Visibility)}
+              />
               <button
                 type="button"
                 onClick={() => thumbInput.current?.click()}
