@@ -282,7 +282,7 @@ function UploadPage() {
           description: globalDescription.trim(),
           language: item.language,
           category: item.category,
-          visibility: "public",
+          visibility: item.visibility === "private" ? "private" : "public",
           status: "ready",
           video_url: pub.publicUrl,
           thumbnail_url: thumbUrl,
