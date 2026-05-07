@@ -53,6 +53,7 @@ interface QueueItem {
   error: string | null;
   controller: AbortController | null;
   duration: number;
+  visibility: Visibility;
   videoId?: string;
 }
 
