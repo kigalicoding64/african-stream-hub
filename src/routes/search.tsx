@@ -62,13 +62,24 @@ function SearchPage() {
             </h1>
           </div>
           {q && (
-            <button
-              onClick={() => setPopularOnly((v) => !v)}
-              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold border transition ${popularOnly ? "text-primary-foreground border-transparent shadow-[var(--shadow-glow)]" : "border-border bg-surface hover:bg-surface-elevated"}`}
-              style={popularOnly ? { background: "var(--gradient-brand)" } : undefined}
-            >
-              <Sparkles className="h-3.5 w-3.5" /> Popular Africa
-            </button>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setPopularOnly((v) => !v)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold border transition ${popularOnly ? "text-primary-foreground border-transparent shadow-[var(--shadow-glow)]" : "border-border bg-surface hover:bg-surface-elevated"}`}
+                style={popularOnly ? { background: "var(--gradient-brand)" } : undefined}
+              >
+                <Sparkles className="h-3.5 w-3.5" /> Popular Africa
+              </button>
+              {user && (
+                <button
+                  onClick={() => setIncludeDrafts((v) => !v)}
+                  title="Include your private drafts in results"
+                  className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold border transition ${includeDrafts ? "border-primary text-primary bg-primary/10" : "border-border bg-surface hover:bg-surface-elevated"}`}
+                >
+                  <EyeOff className="h-3.5 w-3.5" /> Include my drafts
+                </button>
+              )}
+            </div>
           )}
         </div>
 
