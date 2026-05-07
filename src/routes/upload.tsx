@@ -691,6 +691,18 @@ function QueueRow({
               <span className="flex-1">{item.error}</span>
             </div>
           )}
+
+          {item.status === "done" && item.visibility === "private" && item.videoId && (
+            <div className="pt-1">
+              <button
+                onClick={onPublish}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-[var(--shadow-glow)] hover:scale-105 transition"
+                style={{ background: "var(--gradient-brand)" }}
+              >
+                <Check className="h-3.5 w-3.5" /> Make Public
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
