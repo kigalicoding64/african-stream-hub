@@ -233,7 +233,7 @@ export async function searchAll(
     ...(((dRes as { data: unknown }).data as DbVideo[] | null) ?? []).map(dbToVideo),
     ...((vRes.data as unknown as DbVideo[]) ?? []).map(dbToVideo),
   ];
-  const dbVideos = ((vRes.data as unknown as DbVideo[]) ?? []).map(dbToVideo);
+  
   const dbCreators = (cRes.data as CreatorProfile[]) ?? [];
 
   // Also search the seeded mock catalog so the 100+ "Popular Africa" items are findable.
