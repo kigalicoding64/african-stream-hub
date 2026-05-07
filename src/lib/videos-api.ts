@@ -62,6 +62,7 @@ export function dbToVideo(v: DbVideo): Video {
     description: v.description ?? "",
     uploadedAt: relTime(v.created_at),
     mediaType: v.media_type ?? "video",
+    visibility: v.visibility === "private" ? "private" : "public",
   };
 }
 
