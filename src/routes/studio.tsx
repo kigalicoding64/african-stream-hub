@@ -62,6 +62,21 @@ function StudioPage() {
 
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [user?.id]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    const onUpdate = () => refresh();
+    if (typeof window !== "undefined") window.addEventListener("ibona:video-updated", onUpdate);
+    const ch = supabase
+      .channel(`studio-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "videos", filter: `owner_id=eq.${user.id}` }, () => refresh())
+      .subscribe();
+    return () => {
+      if (typeof window !== "undefined") window.removeEventListener("ibona:video-updated", onUpdate);
+      supabase.removeChannel(ch);
+    };
+    // eslint-disable-next-line
+  }, [user?.id]);
+
   const onDelete = async (id: string) => {
     if (!confirm("Delete this video? This cannot be undone.")) return;
     const { error } = await supabase.from("videos").delete().eq("id", id);
