@@ -136,17 +136,29 @@ function UploadPage() {
     setQueue((q) => q.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   };
 
+  const [confirmPublishId, setConfirmPublishId] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+
   const publishDraft = async (id: string) => {
     const it = queueRef.current.find((q) => q.id === id);
     if (!it || !it.videoId || it.visibility !== "private") return;
+    setPublishing(true);
     const { error } = await supabase
       .from("videos")
       .update({ visibility: "public" })
       .eq("id", it.videoId);
+    setPublishing(false);
     if (error) { toast.error("Couldn't publish", { description: error.message }); return; }
     updateItem(id, { visibility: "public" });
+    setConfirmPublishId(null);
     toast.success("Now public", { description: "Visible on the public feed." });
+    // Notify any open feed/search views to refresh immediately
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("ibona:video-updated", { detail: { id: it.videoId } }));
+    }
   };
+
+  const confirmItem = queue.find((q) => q.id === confirmPublishId) ?? null;
 
   /** Returns null if file is valid for upload, otherwise a human-readable reason. */
   const validateFile = (f: File): { mediaType: MediaType } | { error: string } => {
