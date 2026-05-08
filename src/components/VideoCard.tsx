@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Eye, Play } from "lucide-react";
 import type { Video } from "@/data/videos";
@@ -11,6 +11,7 @@ interface Props {
 
 export function VideoCard({ video, size = "default" }: Props) {
   const { shouldReducePreviews } = useSettings();
+  const navigate = useNavigate();
   const [hovered, setHovered] = useState(false);
   const [inView, setInView] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -126,14 +127,17 @@ export function VideoCard({ video, size = "default" }: Props) {
             {video.title}
           </h3>
           {video.creatorUsername ? (
-            <Link
-              to="/c/$username"
-              params={{ username: video.creatorUsername }}
-              onClick={(e) => e.stopPropagation()}
-              className="mt-1 block text-xs text-muted-foreground truncate hover:text-primary transition-colors"
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                navigate({ to: "/c/$username", params: { username: video.creatorUsername! } });
+              }}
+              className="mt-1 block text-xs text-muted-foreground truncate hover:text-primary transition-colors text-left"
             >
               {video.creator}
-            </Link>
+            </button>
           ) : (
             <p className="mt-1 text-xs text-muted-foreground truncate">{video.creator}</p>
           )}
