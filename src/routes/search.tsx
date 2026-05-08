@@ -35,15 +35,23 @@ function SearchPage() {
 
   useEffect(() => {
     if (!q.trim()) { setVideos([]); setCreators([]); return; }
-    setLoading(true);
     let cancelled = false;
-    searchAll(q, { includeDrafts, viewerId: user?.id ?? null }).then((r) => {
-      if (cancelled) return;
-      setVideos(r.videos);
-      setCreators(r.creators);
-      setLoading(false);
-    });
-    return () => { cancelled = true; };
+    const run = () => {
+      setLoading(true);
+      searchAll(q, { includeDrafts, viewerId: user?.id ?? null }).then((r) => {
+        if (cancelled) return;
+        setVideos(r.videos);
+        setCreators(r.creators);
+        setLoading(false);
+      });
+    };
+    run();
+    const onUpdate = () => run();
+    if (typeof window !== "undefined") window.addEventListener("ibona:video-updated", onUpdate);
+    return () => {
+      cancelled = true;
+      if (typeof window !== "undefined") window.removeEventListener("ibona:video-updated", onUpdate);
+    };
   }, [q, includeDrafts, user?.id]);
 
   const shownVideos = useMemo(
