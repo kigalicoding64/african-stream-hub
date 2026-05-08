@@ -11,6 +11,7 @@ interface Props {
 
 export function VideoCard({ video, size = "default" }: Props) {
   const { shouldReducePreviews } = useSettings();
+  const navigate = useNavigate();
   const [hovered, setHovered] = useState(false);
   const [inView, setInView] = useState(false);
   const [loaded, setLoaded] = useState(false);
