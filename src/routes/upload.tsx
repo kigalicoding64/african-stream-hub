@@ -574,7 +574,7 @@ function UploadPage() {
               onCat={(c) => updateItem(it.id, { category: c })}
               onThumb={(f) => setItemThumb(it.id, f)}
               onVisibility={(v) => updateItem(it.id, { visibility: v })}
-              onPublish={() => publishDraft(it.id)}
+              onPublish={() => setConfirmPublishId(it.id)}
             />
           ))}
         </div>
