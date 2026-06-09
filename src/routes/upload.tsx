@@ -178,16 +178,20 @@ function UploadPage() {
   const [confirmPublishId, setConfirmPublishId] = useState<string | null>(null);
   const [confirmPublishAll, setConfirmPublishAll] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
+  const [bulkProgress, setBulkProgress] = useState<{ kind: "publish" | "retry"; done: number; total: number } | null>(null);
 
   const publishDraft = async (id: string) => {
     const it = queueRef.current.find((q) => q.id === id);
     if (!it || !it.videoId || it.visibility !== "private") return;
     setPublishing(true);
+    setPublishingIds((s) => new Set(s).add(id));
     const { error } = await supabase
       .from("videos")
       .update({ visibility: "public" })
       .eq("id", it.videoId);
     setPublishing(false);
+    setPublishingIds((s) => { const n = new Set(s); n.delete(id); return n; });
     if (error) { toast.error("Couldn't publish", { description: error.message }); return; }
     updateItem(id, { visibility: "public" });
     setConfirmPublishId(null);
@@ -201,13 +205,23 @@ function UploadPage() {
     const drafts = queueRef.current.filter((q) => q.status === "done" && q.visibility === "private" && q.videoId);
     if (!drafts.length) return;
     setPublishing(true);
-    const ids = drafts.map((d) => d.videoId!) as string[];
-    const { error } = await supabase.from("videos").update({ visibility: "public" }).in("id", ids);
-    setPublishing(false);
-    if (error) { toast.error("Couldn't publish all", { description: error.message }); return; }
-    setQueue((q) => q.map((it) => (drafts.find((d) => d.id === it.id) ? { ...it, visibility: "public" } : it)));
     setConfirmPublishAll(false);
-    toast.success(`Published ${drafts.length} draft${drafts.length === 1 ? "" : "s"}`);
+    setBulkProgress({ kind: "publish", done: 0, total: drafts.length });
+    let ok = 0; let fail = 0; const failures: string[] = [];
+    // Publish one-by-one so we can show per-item progress
+    for (const d of drafts) {
+      setPublishingIds((s) => new Set(s).add(d.id));
+      const { error } = await supabase.from("videos").update({ visibility: "public" }).eq("id", d.videoId!);
+      setPublishingIds((s) => { const n = new Set(s); n.delete(d.id); return n; });
+      if (error) { fail++; failures.push(`${d.title}: ${error.message}`); }
+      else { ok++; updateItem(d.id, { visibility: "public" }); }
+      setBulkProgress((p) => p ? { ...p, done: p.done + 1 } : p);
+    }
+    setPublishing(false);
+    setBulkProgress(null);
+    if (ok > 0 && fail === 0) toast.success(`Published ${ok} draft${ok === 1 ? "" : "s"} to public`);
+    else if (ok > 0 && fail > 0) toast.warning(`Published ${ok}, ${fail} failed`, { description: failures.slice(0, 3).join(" • ") });
+    else toast.error(`Couldn't publish ${fail} draft${fail === 1 ? "" : "s"}`, { description: failures.slice(0, 3).join(" • ") });
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("ibona:video-updated", { detail: { bulk: true } }));
     }
