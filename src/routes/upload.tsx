@@ -119,6 +119,8 @@ interface RejectedFile {
   reason: string;
 }
 
+type QueueFilter = "all" | "queued" | "uploading" | "done" | "error" | "draft";
+
 function UploadPage() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [rejected, setRejected] = useState<RejectedFile[]>([]);
@@ -126,17 +128,41 @@ function UploadPage() {
   const [defaultCategory, setDefaultCategory] = useState<Category>("Music");
   const [globalDescription, setGlobalDescription] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [filter, setFilter] = useState<QueueFilter>("all");
   const inputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const queueRef = useRef<QueueItem[]>([]);
   const runningRef = useRef(false);
   queueRef.current = queue;
 
+  // Upload speed tracking (bytes/s, exponentially smoothed)
+  const [speedBps, setSpeedBps] = useState(0);
+  const speedRef = useRef<{ t: number; bytes: number }>({ t: Date.now(), bytes: 0 });
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = Date.now();
+      const bytes = queueRef.current.reduce((acc, it) => {
+        if (it.status === "uploading") return acc + it.file.size * (it.progress / 100);
+        if (it.status === "done") return acc + it.file.size;
+        return acc;
+      }, 0);
+      const dt = (now - speedRef.current.t) / 1000;
+      const db = bytes - speedRef.current.bytes;
+      if (dt > 0.5) {
+        const inst = Math.max(0, db / dt);
+        setSpeedBps((prev) => (prev === 0 ? inst : prev * 0.6 + inst * 0.4));
+        speedRef.current = { t: now, bytes };
+      }
+    }, 750);
+    return () => clearInterval(id);
+  }, []);
+
   const updateItem = (id: string, patch: Partial<QueueItem>) => {
     setQueue((q) => q.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   };
 
   const [confirmPublishId, setConfirmPublishId] = useState<string | null>(null);
+  const [confirmPublishAll, setConfirmPublishAll] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
   const publishDraft = async (id: string) => {
