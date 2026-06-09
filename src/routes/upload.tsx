@@ -1058,10 +1058,12 @@ function QueueRow({
             <div className="pt-1">
               <button
                 onClick={onPublish}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-[var(--shadow-glow)] hover:scale-105 transition"
+                disabled={isPublishing}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-[var(--shadow-glow)] hover:scale-105 transition disabled:opacity-60 disabled:hover:scale-100"
                 style={{ background: "var(--gradient-brand)" }}
               >
-                <Check className="h-3.5 w-3.5" /> Make Public
+                {isPublishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                {isPublishing ? "Publishing…" : "Make Public"}
               </button>
             </div>
           )}
