@@ -443,9 +443,28 @@ function UploadPage() {
   const retryAllFailed = () => {
     const failures = queueRef.current.filter((it) => it.status === "error" || it.status === "cancelled");
     if (!failures.length) { toast("No failed items"); return; }
-    setQueue((q) => q.map((it) => ((it.status === "error" || it.status === "cancelled")
+    const ids = new Set(failures.map((f) => f.id));
+    setQueue((q) => q.map((it) => (ids.has(it.id)
       ? { ...it, status: "queued", error: null, progress: 0, controller: null } : it)));
-    toast.success(`Retrying ${failures.length} item${failures.length === 1 ? "" : "s"}`);
+    setBulkProgress({ kind: "retry", done: 0, total: failures.length });
+    toast.success(`Retrying ${failures.length} item${failures.length === 1 ? "" : "s"}`, {
+      description: "We'll show success/failure totals when finished.",
+    });
+    // Watch retries to completion and report a summary toast
+    const startTs = Date.now();
+    const watcher = setInterval(() => {
+      const remaining = queueRef.current.filter((it) => ids.has(it.id) && (it.status === "queued" || it.status === "uploading"));
+      const ok = queueRef.current.filter((it) => ids.has(it.id) && it.status === "done").length;
+      const bad = queueRef.current.filter((it) => ids.has(it.id) && (it.status === "error" || it.status === "cancelled")).length;
+      setBulkProgress({ kind: "retry", done: ok + bad, total: failures.length });
+      if (remaining.length === 0 || Date.now() - startTs > 1000 * 60 * 60) {
+        clearInterval(watcher);
+        setBulkProgress(null);
+        if (ok > 0 && bad === 0) toast.success(`Retry complete — ${ok} succeeded`);
+        else if (ok > 0 && bad > 0) toast.warning(`Retry done — ${ok} succeeded, ${bad} still failing`);
+        else toast.error(`Retry done — ${bad} still failing`);
+      }
+    }, 1200);
     setTimeout(runQueue, 50);
   };
 
