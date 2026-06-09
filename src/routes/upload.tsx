@@ -662,6 +662,57 @@ function UploadPage() {
           </div>
         )}
 
+        {/* Metadata templates */}
+        {queue.length > 0 && (
+          <div className="rounded-2xl border border-border bg-surface p-4 mb-4">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground inline-flex items-center gap-1.5">
+                <Bookmark className="h-3.5 w-3.5" /> Metadata templates
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTemplateForm((s) => !s)}
+                className="text-xs font-semibold inline-flex items-center gap-1 rounded-full border border-border bg-background hover:bg-surface-elevated px-3 py-1"
+              >
+                <Save className="h-3 w-3" /> Save current as template
+              </button>
+            </div>
+            {showTemplateForm && (
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <input
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
+                  placeholder="Template name (e.g. Kinyarwanda comedy)"
+                  className="flex-1 min-w-[200px] rounded-xl bg-background border border-border px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                />
+                <button onClick={saveTemplate} className="rounded-full px-4 py-2 text-xs font-bold text-primary-foreground shadow-[var(--shadow-glow)]" style={{ background: "var(--gradient-brand)" }}>Save</button>
+                <button onClick={() => { setShowTemplateForm(false); setNewTemplateName(""); }} className="rounded-full px-3 py-2 text-xs font-semibold border border-border bg-background hover:bg-surface-elevated">Cancel</button>
+              </div>
+            )}
+            {templates.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No templates yet. Save your current language, category and description to apply them to many uploads in one click.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {templates.map((tpl) => (
+                  <div key={tpl.id} className="rounded-xl border border-border bg-background px-3 py-2 text-xs flex items-center gap-2">
+                    <div>
+                      <div className="font-bold">{tpl.name}</div>
+                      <div className="text-muted-foreground text-[10px]">{tpl.language} · {tpl.category}{tpl.description ? " · desc" : ""}</div>
+                    </div>
+                    <div className="flex gap-1 ml-1">
+                      <button onClick={() => applyTemplate(tpl, "editable")} title="Apply to editable items" className="rounded-full bg-primary/15 text-primary px-2.5 py-1 font-semibold hover:bg-primary/25">Apply</button>
+                      <button onClick={() => applyTemplate(tpl, "all")} title="Apply to ALL items in queue" className="rounded-full border border-border bg-background px-2 py-1 font-semibold hover:bg-surface-elevated">All</button>
+                      <button onClick={() => deleteTemplate(tpl.id)} title="Delete template" className="rounded-full text-muted-foreground hover:text-destructive px-1.5">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Review & queue header */}
         {queue.length > 0 && (
           <div className="text-xs font-bold uppercase tracking-widest text-primary mb-2">
