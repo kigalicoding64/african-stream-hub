@@ -143,6 +143,46 @@ function UploadPage() {
   const [globalDescription, setGlobalDescription] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [filter, setFilter] = useState<QueueFilter>("all");
+
+  // Metadata templates (persist locally)
+  interface MetaTemplate { id: string; name: string; language: Language; category: Category; description: string; }
+  const TEMPLATE_KEY = "ibona:upload-templates";
+  const [templates, setTemplates] = useState<MetaTemplate[]>([]);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  useEffect(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem(TEMPLATE_KEY) : null;
+      if (raw) setTemplates(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+  const persistTemplates = (next: MetaTemplate[]) => {
+    setTemplates(next);
+    try { window.localStorage.setItem(TEMPLATE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  };
+  const saveTemplate = () => {
+    const name = newTemplateName.trim();
+    if (!name) { toast.error("Give the template a name"); return; }
+    const tpl: MetaTemplate = { id: crypto.randomUUID(), name, language: defaultLang, category: defaultCategory, description: globalDescription };
+    persistTemplates([tpl, ...templates].slice(0, 12));
+    setNewTemplateName(""); setShowTemplateForm(false);
+    toast.success(`Saved template "${name}"`);
+  };
+  const deleteTemplate = (id: string) => {
+    persistTemplates(templates.filter((t) => t.id !== id));
+  };
+  const applyTemplate = (tpl: MetaTemplate, scope: "editable" | "all") => {
+    setDefaultLang(tpl.language); setDefaultCategory(tpl.category); setGlobalDescription(tpl.description);
+    const count = queueRef.current.filter((it) => scope === "all" ? true : (it.status === "queued" || it.status === "error" || it.status === "cancelled")).length;
+    if (count === 0) { toast(`Template "${tpl.name}" set as defaults`); return; }
+    setQueue((q) => q.map((it) => {
+      const ok = scope === "all" ? true : (it.status === "queued" || it.status === "error" || it.status === "cancelled");
+      if (!ok) return it;
+      return { ...it, language: tpl.language, category: it.mediaType === "audio" ? "Music" : tpl.category };
+    }));
+    toast.success(`Applied "${tpl.name}" to ${count} item${count === 1 ? "" : "s"}`);
+  };
+
   const inputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const queueRef = useRef<QueueItem[]>([]);
