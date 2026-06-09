@@ -412,6 +412,19 @@ function UploadPage() {
     runQueue();
   };
 
+  const retryAllFailed = () => {
+    const failures = queueRef.current.filter((it) => it.status === "error" || it.status === "cancelled");
+    if (!failures.length) { toast("No failed items"); return; }
+    setQueue((q) => q.map((it) => ((it.status === "error" || it.status === "cancelled")
+      ? { ...it, status: "queued", error: null, progress: 0, controller: null } : it)));
+    toast.success(`Retrying ${failures.length} item${failures.length === 1 ? "" : "s"}`);
+    setTimeout(runQueue, 50);
+  };
+
+  const removeAllByStatus = (...statuses: ItemStatus[]) => {
+    setQueue((q) => q.filter((it) => !statuses.includes(it.status)));
+  };
+
   // Cleanup object URLs on unmount
   useEffect(() => () => {
     queueRef.current.forEach((it) => { if (it.thumbUrl) URL.revokeObjectURL(it.thumbUrl); });
@@ -421,13 +434,27 @@ function UploadPage() {
     const total = queue.length;
     const done = queue.filter((it) => it.status === "done").length;
     const failed = queue.filter((it) => it.status === "error").length;
+    const cancelled = queue.filter((it) => it.status === "cancelled").length;
     const uploading = queue.filter((it) => it.status === "uploading").length;
     const queuedCount = queue.filter((it) => it.status === "queued").length;
     const overall = total === 0 ? 0 : Math.round(queue.reduce((a, b) => a + (b.status === "done" ? 100 : b.progress), 0) / total);
-    return { total, done, failed, uploading, queuedCount, overall };
+    const remainingBytes = queue.reduce((acc, b) => {
+      if (b.status === "done") return acc;
+      if (b.status === "uploading") return acc + b.file.size * (1 - b.progress / 100);
+      if (b.status === "queued") return acc + b.file.size;
+      return acc;
+    }, 0);
+    return { total, done, failed, cancelled, uploading, queuedCount, overall, remainingBytes };
   }, [queue]);
 
+  const filteredQueue = useMemo(() => {
+    if (filter === "all") return queue;
+    if (filter === "draft") return queue.filter((it) => it.status === "done" && it.visibility === "private");
+    return queue.filter((it) => it.status === filter);
+  }, [queue, filter]);
+
   const busy = stats.uploading > 0;
+  const etaSec = busy && speedBps > 1024 ? stats.remainingBytes / speedBps : 0;
 
   return (
     <AppLayout>
