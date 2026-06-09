@@ -434,9 +434,8 @@ function UploadPage() {
     setTimeout(runQueue, 50);
   };
 
-  const removeAllByStatus = (...statuses: ItemStatus[]) => {
-    setQueue((q) => q.filter((it) => !statuses.includes(it.status)));
-  };
+
+
 
   // Cleanup object URLs on unmount
   useEffect(() => () => {
