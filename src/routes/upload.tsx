@@ -944,9 +944,10 @@ function UploadPage() {
 }
 
 function QueueRow({
-  item, onCancel, onRetry, onRemove, onTitle, onLang, onCat, onThumb, onVisibility, onPublish,
+  item, isPublishing, onCancel, onRetry, onRemove, onTitle, onLang, onCat, onThumb, onVisibility, onPublish,
 }: {
   item: QueueItem;
+  isPublishing?: boolean;
   onCancel: () => void;
   onRetry: () => void;
   onRemove: () => void;
