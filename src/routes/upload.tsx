@@ -759,6 +759,46 @@ function UploadPage() {
           </div>
         </div>
       )}
+
+      {/* Bulk publish confirmation modal */}
+      {confirmPublishAll && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => !publishing && setConfirmPublishAll(false)}
+        >
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-10 w-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <h3 className="text-lg font-bold">Publish {draftDoneCount} draft{draftDoneCount === 1 ? "" : "s"}?</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              All of your finished drafts will become visible to everyone on the home feed and search. You can change them back any time.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmPublishAll(false)}
+                disabled={publishing}
+                className="rounded-full px-4 py-2 text-sm font-bold border border-border bg-background hover:bg-surface-elevated disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={publishAllDrafts}
+                disabled={publishing}
+                className="rounded-full px-5 py-2 text-sm font-bold text-primary-foreground shadow-[var(--shadow-glow)] hover:scale-105 transition disabled:opacity-60 disabled:hover:scale-100 inline-flex items-center gap-1.5"
+                style={{ background: "var(--gradient-brand)" }}
+              >
+                {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {publishing ? "Publishing…" : `Yes, publish all (${draftDoneCount})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }
