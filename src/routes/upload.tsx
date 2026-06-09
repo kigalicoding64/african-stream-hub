@@ -39,6 +39,19 @@ function fmtLimit(mb: number) {
   return mb >= 1024 ? `${(mb / 1024).toFixed(0)} GB` : `${mb} MB`;
 }
 
+function fmtBytesPerSec(bps: number) {
+  if (bps < 1024) return `${bps.toFixed(0)} B/s`;
+  if (bps < 1024 * 1024) return `${(bps / 1024).toFixed(1)} KB/s`;
+  return `${(bps / 1024 / 1024).toFixed(1)} MB/s`;
+}
+
+function fmtEta(seconds: number) {
+  if (!isFinite(seconds) || seconds <= 0) return "—";
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+  return `${(seconds / 3600).toFixed(1)}h`;
+}
+
 interface QueueItem {
   id: string;
   file: File;
@@ -119,6 +132,8 @@ interface RejectedFile {
   reason: string;
 }
 
+type QueueFilter = "all" | "queued" | "uploading" | "done" | "error" | "draft";
+
 function UploadPage() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [rejected, setRejected] = useState<RejectedFile[]>([]);
@@ -126,17 +141,41 @@ function UploadPage() {
   const [defaultCategory, setDefaultCategory] = useState<Category>("Music");
   const [globalDescription, setGlobalDescription] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [filter, setFilter] = useState<QueueFilter>("all");
   const inputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const queueRef = useRef<QueueItem[]>([]);
   const runningRef = useRef(false);
   queueRef.current = queue;
 
+  // Upload speed tracking (bytes/s, exponentially smoothed)
+  const [speedBps, setSpeedBps] = useState(0);
+  const speedRef = useRef<{ t: number; bytes: number }>({ t: Date.now(), bytes: 0 });
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = Date.now();
+      const bytes = queueRef.current.reduce((acc, it) => {
+        if (it.status === "uploading") return acc + it.file.size * (it.progress / 100);
+        if (it.status === "done") return acc + it.file.size;
+        return acc;
+      }, 0);
+      const dt = (now - speedRef.current.t) / 1000;
+      const db = bytes - speedRef.current.bytes;
+      if (dt > 0.5) {
+        const inst = Math.max(0, db / dt);
+        setSpeedBps((prev) => (prev === 0 ? inst : prev * 0.6 + inst * 0.4));
+        speedRef.current = { t: now, bytes };
+      }
+    }, 750);
+    return () => clearInterval(id);
+  }, []);
+
   const updateItem = (id: string, patch: Partial<QueueItem>) => {
     setQueue((q) => q.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   };
 
   const [confirmPublishId, setConfirmPublishId] = useState<string | null>(null);
+  const [confirmPublishAll, setConfirmPublishAll] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
   const publishDraft = async (id: string) => {
@@ -152,13 +191,29 @@ function UploadPage() {
     updateItem(id, { visibility: "public" });
     setConfirmPublishId(null);
     toast.success("Now public", { description: "Visible on the public feed." });
-    // Notify any open feed/search views to refresh immediately
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("ibona:video-updated", { detail: { id: it.videoId } }));
     }
   };
 
+  const publishAllDrafts = async () => {
+    const drafts = queueRef.current.filter((q) => q.status === "done" && q.visibility === "private" && q.videoId);
+    if (!drafts.length) return;
+    setPublishing(true);
+    const ids = drafts.map((d) => d.videoId!) as string[];
+    const { error } = await supabase.from("videos").update({ visibility: "public" }).in("id", ids);
+    setPublishing(false);
+    if (error) { toast.error("Couldn't publish all", { description: error.message }); return; }
+    setQueue((q) => q.map((it) => (drafts.find((d) => d.id === it.id) ? { ...it, visibility: "public" } : it)));
+    setConfirmPublishAll(false);
+    toast.success(`Published ${drafts.length} draft${drafts.length === 1 ? "" : "s"}`);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("ibona:video-updated", { detail: { bulk: true } }));
+    }
+  };
+
   const confirmItem = queue.find((q) => q.id === confirmPublishId) ?? null;
+  const draftDoneCount = queue.filter((q) => q.status === "done" && q.visibility === "private" && q.videoId).length;
 
   /** Returns null if file is valid for upload, otherwise a human-readable reason. */
   const validateFile = (f: File): { mediaType: MediaType } | { error: string } => {
@@ -370,6 +425,18 @@ function UploadPage() {
     runQueue();
   };
 
+  const retryAllFailed = () => {
+    const failures = queueRef.current.filter((it) => it.status === "error" || it.status === "cancelled");
+    if (!failures.length) { toast("No failed items"); return; }
+    setQueue((q) => q.map((it) => ((it.status === "error" || it.status === "cancelled")
+      ? { ...it, status: "queued", error: null, progress: 0, controller: null } : it)));
+    toast.success(`Retrying ${failures.length} item${failures.length === 1 ? "" : "s"}`);
+    setTimeout(runQueue, 50);
+  };
+
+
+
+
   // Cleanup object URLs on unmount
   useEffect(() => () => {
     queueRef.current.forEach((it) => { if (it.thumbUrl) URL.revokeObjectURL(it.thumbUrl); });
@@ -379,13 +446,27 @@ function UploadPage() {
     const total = queue.length;
     const done = queue.filter((it) => it.status === "done").length;
     const failed = queue.filter((it) => it.status === "error").length;
+    const cancelled = queue.filter((it) => it.status === "cancelled").length;
     const uploading = queue.filter((it) => it.status === "uploading").length;
     const queuedCount = queue.filter((it) => it.status === "queued").length;
     const overall = total === 0 ? 0 : Math.round(queue.reduce((a, b) => a + (b.status === "done" ? 100 : b.progress), 0) / total);
-    return { total, done, failed, uploading, queuedCount, overall };
+    const remainingBytes = queue.reduce((acc, b) => {
+      if (b.status === "done") return acc;
+      if (b.status === "uploading") return acc + b.file.size * (1 - b.progress / 100);
+      if (b.status === "queued") return acc + b.file.size;
+      return acc;
+    }, 0);
+    return { total, done, failed, cancelled, uploading, queuedCount, overall, remainingBytes };
   }, [queue]);
 
+  const filteredQueue = useMemo(() => {
+    if (filter === "all") return queue;
+    if (filter === "draft") return queue.filter((it) => it.status === "done" && it.visibility === "private");
+    return queue.filter((it) => it.status === filter);
+  }, [queue, filter]);
+
   const busy = stats.uploading > 0;
+  const etaSec = busy && speedBps > 1024 ? stats.remainingBytes / speedBps : 0;
 
   return (
     <AppLayout>
@@ -513,56 +594,100 @@ function UploadPage() {
             Step 2 — Review &amp; remove any items, then start
           </div>
         )}
-        {/* Queue header */}
+        {/* Queue header — sticky summary + bulk actions */}
         {queue.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-            <div className="text-sm font-semibold">
-              {stats.total} file{stats.total === 1 ? "" : "s"} ·
-              <span className="text-secondary"> {stats.done} done</span> ·
-              <span className="text-primary"> {stats.uploading} uploading</span>
-              {stats.failed > 0 && <span className="text-destructive"> · {stats.failed} failed</span>}
-              {stats.queuedCount > 0 && <span className="text-muted-foreground"> · {stats.queuedCount} queued</span>}
+          <div className="sticky top-2 z-20 rounded-2xl border border-border bg-surface/90 backdrop-blur-xl p-3 mb-3 shadow-[var(--shadow-elegant)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-sm font-semibold flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>{stats.total} file{stats.total === 1 ? "" : "s"}</span>
+                <span className="text-secondary">· {stats.done} done</span>
+                {stats.uploading > 0 && <span className="text-primary">· {stats.uploading} uploading</span>}
+                {stats.queuedCount > 0 && <span className="text-muted-foreground">· {stats.queuedCount} queued</span>}
+                {stats.failed > 0 && <span className="text-destructive">· {stats.failed} failed</span>}
+                {draftDoneCount > 0 && <span className="text-amber-400">· {draftDoneCount} draft{draftDoneCount === 1 ? "" : "s"}</span>}
+                {busy && speedBps > 0 && (
+                  <span className="text-muted-foreground font-mono text-xs">
+                    · {fmtBytesPerSec(speedBps)}{etaSec > 0 ? ` · ~${fmtEta(etaSec)} left` : ""}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {stats.failed + stats.cancelled > 0 && (
+                  <button onClick={retryAllFailed} className="rounded-full border border-primary/40 text-primary bg-primary/5 hover:bg-primary/10 px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1">
+                    <RefreshCw className="h-3.5 w-3.5" /> Retry failed ({stats.failed + stats.cancelled})
+                  </button>
+                )}
+                {draftDoneCount > 0 && (
+                  <button onClick={() => setConfirmPublishAll(true)} className="rounded-full border border-amber-400/40 text-amber-400 bg-amber-400/5 hover:bg-amber-400/10 px-3 py-1.5 text-xs font-semibold inline-flex items-center gap-1">
+                    <Check className="h-3.5 w-3.5" /> Publish all drafts ({draftDoneCount})
+                  </button>
+                )}
+                {stats.done > 0 && (
+                  <button onClick={clearFinished} className="rounded-full border border-border bg-background hover:bg-surface-elevated px-3 py-1.5 text-xs font-semibold">
+                    Clear finished
+                  </button>
+                )}
+                {busy ? (
+                  <button onClick={cancelAll} className="rounded-full border border-destructive/50 text-destructive bg-destructive/5 hover:bg-destructive/10 px-3 py-1.5 text-xs font-semibold">
+                    <X className="h-3.5 w-3.5 inline mr-1" /> Cancel all
+                  </button>
+                ) : (
+                  <button
+                    onClick={startAll}
+                    disabled={stats.queuedCount === 0}
+                    className="rounded-full px-4 py-1.5 text-xs font-bold text-primary-foreground transition hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 shadow-[var(--shadow-glow)]"
+                    style={{ background: "var(--gradient-brand)" }}
+                  >
+                    <Play className="h-3.5 w-3.5 inline mr-1" /> Start uploading ({stats.queuedCount})
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex gap-2">
-              {stats.done > 0 && (
-                <button onClick={clearFinished} className="rounded-full border border-border bg-surface hover:bg-surface-elevated px-4 py-2 text-xs font-semibold">
-                  Clear finished
-                </button>
-              )}
-              {busy ? (
-                <button onClick={cancelAll} className="rounded-full border border-destructive/50 text-destructive bg-destructive/5 hover:bg-destructive/10 px-4 py-2 text-xs font-semibold">
-                  <X className="h-3.5 w-3.5 inline mr-1" /> Cancel all
-                </button>
-              ) : (
-                <button
-                  onClick={startAll}
-                  disabled={stats.queuedCount === 0}
-                  className="rounded-full px-5 py-2 text-xs font-bold text-primary-foreground transition hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 shadow-[var(--shadow-glow)]"
-                  style={{ background: "var(--gradient-brand)" }}
-                >
-                  <Play className="h-3.5 w-3.5 inline mr-1" /> Start uploading ({stats.queuedCount})
-                </button>
-              )}
-            </div>
-          </div>
-        )}
 
-        {/* Overall progress */}
-        {queue.length > 0 && busy && (
-          <div className="mb-4">
-            <div className="flex items-center justify-between text-xs font-semibold mb-1">
-              <span className="text-muted-foreground">Overall</span>
-              <span className="font-mono tabular-nums">{stats.overall}%</span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-background overflow-hidden">
-              <div className="h-full transition-[width] duration-200" style={{ width: `${stats.overall}%`, background: "var(--gradient-brand)" }} />
+            {/* Overall progress */}
+            {busy && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-[11px] font-semibold mb-1">
+                  <span className="text-muted-foreground">Overall</span>
+                  <span className="font-mono tabular-nums">{stats.overall}%</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-background overflow-hidden">
+                  <div className="h-full transition-[width] duration-200" style={{ width: `${stats.overall}%`, background: "var(--gradient-brand)" }} />
+                </div>
+              </div>
+            )}
+
+            {/* Filter tabs */}
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {([
+                ["all", "All", stats.total],
+                ["queued", "Queued", stats.queuedCount],
+                ["uploading", "Uploading", stats.uploading],
+                ["done", "Done", stats.done],
+                ["draft", "Drafts", draftDoneCount],
+                ["error", "Failed", stats.failed],
+              ] as [QueueFilter, string, number][]).map(([key, label, count]) => (
+                <button
+                  key={key}
+                  onClick={() => setFilter(key)}
+                  className={`rounded-full px-3 py-1 text-[11px] font-bold inline-flex items-center gap-1.5 transition ${filter === key ? "bg-primary text-primary-foreground" : "bg-background border border-border text-muted-foreground hover:text-foreground"}`}
+                >
+                  {label}
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${filter === key ? "bg-primary-foreground/20" : "bg-muted"}`}>{count}</span>
+                </button>
+              ))}
             </div>
           </div>
         )}
 
         {/* Queue list */}
         <div className="space-y-3">
-          {queue.map((it) => (
+          {filteredQueue.length === 0 && queue.length > 0 && (
+            <div className="rounded-2xl border border-dashed border-border bg-surface/40 p-6 text-center text-sm text-muted-foreground">
+              No items in this view. Try another tab.
+            </div>
+          )}
+          {filteredQueue.map((it) => (
             <QueueRow
               key={it.id}
               item={it}
@@ -628,6 +753,46 @@ function UploadPage() {
               >
                 {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                 {publishing ? "Publishing…" : "Yes, make it public"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk publish confirmation modal */}
+      {confirmPublishAll && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => !publishing && setConfirmPublishAll(false)}
+        >
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-10 w-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <h3 className="text-lg font-bold">Publish {draftDoneCount} draft{draftDoneCount === 1 ? "" : "s"}?</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              All of your finished drafts will become visible to everyone on the home feed and search. You can change them back any time.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmPublishAll(false)}
+                disabled={publishing}
+                className="rounded-full px-4 py-2 text-sm font-bold border border-border bg-background hover:bg-surface-elevated disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={publishAllDrafts}
+                disabled={publishing}
+                className="rounded-full px-5 py-2 text-sm font-bold text-primary-foreground shadow-[var(--shadow-glow)] hover:scale-105 transition disabled:opacity-60 disabled:hover:scale-100 inline-flex items-center gap-1.5"
+                style={{ background: "var(--gradient-brand)" }}
+              >
+                {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {publishing ? "Publishing…" : `Yes, publish all (${draftDoneCount})`}
               </button>
             </div>
           </div>
