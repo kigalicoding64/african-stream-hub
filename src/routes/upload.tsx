@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Upload as UploadIcon, X, Check, Loader2, Film, Sparkles, Image as ImageIcon,
   AlertTriangle, RefreshCw, Music, Video as VideoIcon, ListPlus, Trash2, Play,
+  Bookmark, Save,
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
