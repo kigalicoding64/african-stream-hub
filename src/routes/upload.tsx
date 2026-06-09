@@ -782,7 +782,22 @@ function UploadPage() {
               </div>
             )}
 
-            {/* Filter tabs */}
+            {/* Bulk operation progress (publish-all / retry-all) */}
+            {bulkProgress && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-[11px] font-semibold mb-1">
+                  <span className="text-amber-400 inline-flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {bulkProgress.kind === "publish" ? "Publishing drafts" : "Retrying failed uploads"}
+                  </span>
+                  <span className="font-mono tabular-nums">{bulkProgress.done}/{bulkProgress.total}</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-background overflow-hidden">
+                  <div className="h-full bg-amber-400 transition-[width] duration-200" style={{ width: `${Math.round((bulkProgress.done / Math.max(1, bulkProgress.total)) * 100)}%` }} />
+                </div>
+              </div>
+            )}
+
             <div className="mt-3 flex flex-wrap gap-1.5">
               {([
                 ["all", "All", stats.total],
