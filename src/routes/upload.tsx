@@ -831,6 +831,7 @@ function UploadPage() {
             <QueueRow
               key={it.id}
               item={it}
+              isPublishing={publishingIds.has(it.id)}
               onCancel={() => cancelItem(it.id)}
               onRetry={() => retryItem(it.id)}
               onRemove={() => removeItem(it.id)}
