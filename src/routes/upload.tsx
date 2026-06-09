@@ -178,13 +178,29 @@ function UploadPage() {
     updateItem(id, { visibility: "public" });
     setConfirmPublishId(null);
     toast.success("Now public", { description: "Visible on the public feed." });
-    // Notify any open feed/search views to refresh immediately
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("ibona:video-updated", { detail: { id: it.videoId } }));
     }
   };
 
+  const publishAllDrafts = async () => {
+    const drafts = queueRef.current.filter((q) => q.status === "done" && q.visibility === "private" && q.videoId);
+    if (!drafts.length) return;
+    setPublishing(true);
+    const ids = drafts.map((d) => d.videoId!) as string[];
+    const { error } = await supabase.from("videos").update({ visibility: "public" }).in("id", ids);
+    setPublishing(false);
+    if (error) { toast.error("Couldn't publish all", { description: error.message }); return; }
+    setQueue((q) => q.map((it) => (drafts.find((d) => d.id === it.id) ? { ...it, visibility: "public" } : it)));
+    setConfirmPublishAll(false);
+    toast.success(`Published ${drafts.length} draft${drafts.length === 1 ? "" : "s"}`);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("ibona:video-updated", { detail: { bulk: true } }));
+    }
+  };
+
   const confirmItem = queue.find((q) => q.id === confirmPublishId) ?? null;
+  const draftDoneCount = queue.filter((q) => q.status === "done" && q.visibility === "private" && q.videoId).length;
 
   /** Returns null if file is valid for upload, otherwise a human-readable reason. */
   const validateFile = (f: File): { mediaType: MediaType } | { error: string } => {
