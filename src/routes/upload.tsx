@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Upload as UploadIcon, X, Check, Loader2, Film, Sparkles, Image as ImageIcon,
   AlertTriangle, RefreshCw, Music, Video as VideoIcon, ListPlus, Trash2, Play,
+  Bookmark, Save,
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -142,6 +143,46 @@ function UploadPage() {
   const [globalDescription, setGlobalDescription] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [filter, setFilter] = useState<QueueFilter>("all");
+
+  // Metadata templates (persist locally)
+  interface MetaTemplate { id: string; name: string; language: Language; category: Category; description: string; }
+  const TEMPLATE_KEY = "ibona:upload-templates";
+  const [templates, setTemplates] = useState<MetaTemplate[]>([]);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  useEffect(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem(TEMPLATE_KEY) : null;
+      if (raw) setTemplates(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+  const persistTemplates = (next: MetaTemplate[]) => {
+    setTemplates(next);
+    try { window.localStorage.setItem(TEMPLATE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  };
+  const saveTemplate = () => {
+    const name = newTemplateName.trim();
+    if (!name) { toast.error("Give the template a name"); return; }
+    const tpl: MetaTemplate = { id: crypto.randomUUID(), name, language: defaultLang, category: defaultCategory, description: globalDescription };
+    persistTemplates([tpl, ...templates].slice(0, 12));
+    setNewTemplateName(""); setShowTemplateForm(false);
+    toast.success(`Saved template "${name}"`);
+  };
+  const deleteTemplate = (id: string) => {
+    persistTemplates(templates.filter((t) => t.id !== id));
+  };
+  const applyTemplate = (tpl: MetaTemplate, scope: "editable" | "all") => {
+    setDefaultLang(tpl.language); setDefaultCategory(tpl.category); setGlobalDescription(tpl.description);
+    const count = queueRef.current.filter((it) => scope === "all" ? true : (it.status === "queued" || it.status === "error" || it.status === "cancelled")).length;
+    if (count === 0) { toast(`Template "${tpl.name}" set as defaults`); return; }
+    setQueue((q) => q.map((it) => {
+      const ok = scope === "all" ? true : (it.status === "queued" || it.status === "error" || it.status === "cancelled");
+      if (!ok) return it;
+      return { ...it, language: tpl.language, category: it.mediaType === "audio" ? "Music" : tpl.category };
+    }));
+    toast.success(`Applied "${tpl.name}" to ${count} item${count === 1 ? "" : "s"}`);
+  };
+
   const inputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const queueRef = useRef<QueueItem[]>([]);
@@ -177,16 +218,20 @@ function UploadPage() {
   const [confirmPublishId, setConfirmPublishId] = useState<string | null>(null);
   const [confirmPublishAll, setConfirmPublishAll] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
+  const [bulkProgress, setBulkProgress] = useState<{ kind: "publish" | "retry"; done: number; total: number } | null>(null);
 
   const publishDraft = async (id: string) => {
     const it = queueRef.current.find((q) => q.id === id);
     if (!it || !it.videoId || it.visibility !== "private") return;
     setPublishing(true);
+    setPublishingIds((s) => new Set(s).add(id));
     const { error } = await supabase
       .from("videos")
       .update({ visibility: "public" })
       .eq("id", it.videoId);
     setPublishing(false);
+    setPublishingIds((s) => { const n = new Set(s); n.delete(id); return n; });
     if (error) { toast.error("Couldn't publish", { description: error.message }); return; }
     updateItem(id, { visibility: "public" });
     setConfirmPublishId(null);
@@ -200,13 +245,23 @@ function UploadPage() {
     const drafts = queueRef.current.filter((q) => q.status === "done" && q.visibility === "private" && q.videoId);
     if (!drafts.length) return;
     setPublishing(true);
-    const ids = drafts.map((d) => d.videoId!) as string[];
-    const { error } = await supabase.from("videos").update({ visibility: "public" }).in("id", ids);
-    setPublishing(false);
-    if (error) { toast.error("Couldn't publish all", { description: error.message }); return; }
-    setQueue((q) => q.map((it) => (drafts.find((d) => d.id === it.id) ? { ...it, visibility: "public" } : it)));
     setConfirmPublishAll(false);
-    toast.success(`Published ${drafts.length} draft${drafts.length === 1 ? "" : "s"}`);
+    setBulkProgress({ kind: "publish", done: 0, total: drafts.length });
+    let ok = 0; let fail = 0; const failures: string[] = [];
+    // Publish one-by-one so we can show per-item progress
+    for (const d of drafts) {
+      setPublishingIds((s) => new Set(s).add(d.id));
+      const { error } = await supabase.from("videos").update({ visibility: "public" }).eq("id", d.videoId!);
+      setPublishingIds((s) => { const n = new Set(s); n.delete(d.id); return n; });
+      if (error) { fail++; failures.push(`${d.title}: ${error.message}`); }
+      else { ok++; updateItem(d.id, { visibility: "public" }); }
+      setBulkProgress((p) => p ? { ...p, done: p.done + 1 } : p);
+    }
+    setPublishing(false);
+    setBulkProgress(null);
+    if (ok > 0 && fail === 0) toast.success(`Published ${ok} draft${ok === 1 ? "" : "s"} to public`);
+    else if (ok > 0 && fail > 0) toast.warning(`Published ${ok}, ${fail} failed`, { description: failures.slice(0, 3).join(" • ") });
+    else toast.error(`Couldn't publish ${fail} draft${fail === 1 ? "" : "s"}`, { description: failures.slice(0, 3).join(" • ") });
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("ibona:video-updated", { detail: { bulk: true } }));
     }
@@ -428,9 +483,28 @@ function UploadPage() {
   const retryAllFailed = () => {
     const failures = queueRef.current.filter((it) => it.status === "error" || it.status === "cancelled");
     if (!failures.length) { toast("No failed items"); return; }
-    setQueue((q) => q.map((it) => ((it.status === "error" || it.status === "cancelled")
+    const ids = new Set(failures.map((f) => f.id));
+    setQueue((q) => q.map((it) => (ids.has(it.id)
       ? { ...it, status: "queued", error: null, progress: 0, controller: null } : it)));
-    toast.success(`Retrying ${failures.length} item${failures.length === 1 ? "" : "s"}`);
+    setBulkProgress({ kind: "retry", done: 0, total: failures.length });
+    toast.success(`Retrying ${failures.length} item${failures.length === 1 ? "" : "s"}`, {
+      description: "We'll show success/failure totals when finished.",
+    });
+    // Watch retries to completion and report a summary toast
+    const startTs = Date.now();
+    const watcher = setInterval(() => {
+      const remaining = queueRef.current.filter((it) => ids.has(it.id) && (it.status === "queued" || it.status === "uploading"));
+      const ok = queueRef.current.filter((it) => ids.has(it.id) && it.status === "done").length;
+      const bad = queueRef.current.filter((it) => ids.has(it.id) && (it.status === "error" || it.status === "cancelled")).length;
+      setBulkProgress({ kind: "retry", done: ok + bad, total: failures.length });
+      if (remaining.length === 0 || Date.now() - startTs > 1000 * 60 * 60) {
+        clearInterval(watcher);
+        setBulkProgress(null);
+        if (ok > 0 && bad === 0) toast.success(`Retry complete — ${ok} succeeded`);
+        else if (ok > 0 && bad > 0) toast.warning(`Retry done — ${ok} succeeded, ${bad} still failing`);
+        else toast.error(`Retry done — ${bad} still failing`);
+      }
+    }, 1200);
     setTimeout(runQueue, 50);
   };
 
@@ -588,6 +662,57 @@ function UploadPage() {
           </div>
         )}
 
+        {/* Metadata templates */}
+        {queue.length > 0 && (
+          <div className="rounded-2xl border border-border bg-surface p-4 mb-4">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground inline-flex items-center gap-1.5">
+                <Bookmark className="h-3.5 w-3.5" /> Metadata templates
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTemplateForm((s) => !s)}
+                className="text-xs font-semibold inline-flex items-center gap-1 rounded-full border border-border bg-background hover:bg-surface-elevated px-3 py-1"
+              >
+                <Save className="h-3 w-3" /> Save current as template
+              </button>
+            </div>
+            {showTemplateForm && (
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <input
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
+                  placeholder="Template name (e.g. Kinyarwanda comedy)"
+                  className="flex-1 min-w-[200px] rounded-xl bg-background border border-border px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                />
+                <button onClick={saveTemplate} className="rounded-full px-4 py-2 text-xs font-bold text-primary-foreground shadow-[var(--shadow-glow)]" style={{ background: "var(--gradient-brand)" }}>Save</button>
+                <button onClick={() => { setShowTemplateForm(false); setNewTemplateName(""); }} className="rounded-full px-3 py-2 text-xs font-semibold border border-border bg-background hover:bg-surface-elevated">Cancel</button>
+              </div>
+            )}
+            {templates.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No templates yet. Save your current language, category and description to apply them to many uploads in one click.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {templates.map((tpl) => (
+                  <div key={tpl.id} className="rounded-xl border border-border bg-background px-3 py-2 text-xs flex items-center gap-2">
+                    <div>
+                      <div className="font-bold">{tpl.name}</div>
+                      <div className="text-muted-foreground text-[10px]">{tpl.language} · {tpl.category}{tpl.description ? " · desc" : ""}</div>
+                    </div>
+                    <div className="flex gap-1 ml-1">
+                      <button onClick={() => applyTemplate(tpl, "editable")} title="Apply to editable items" className="rounded-full bg-primary/15 text-primary px-2.5 py-1 font-semibold hover:bg-primary/25">Apply</button>
+                      <button onClick={() => applyTemplate(tpl, "all")} title="Apply to ALL items in queue" className="rounded-full border border-border bg-background px-2 py-1 font-semibold hover:bg-surface-elevated">All</button>
+                      <button onClick={() => deleteTemplate(tpl.id)} title="Delete template" className="rounded-full text-muted-foreground hover:text-destructive px-1.5">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Review & queue header */}
         {queue.length > 0 && (
           <div className="text-xs font-bold uppercase tracking-widest text-primary mb-2">
@@ -657,7 +782,22 @@ function UploadPage() {
               </div>
             )}
 
-            {/* Filter tabs */}
+            {/* Bulk operation progress (publish-all / retry-all) */}
+            {bulkProgress && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-[11px] font-semibold mb-1">
+                  <span className="text-amber-400 inline-flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {bulkProgress.kind === "publish" ? "Publishing drafts" : "Retrying failed uploads"}
+                  </span>
+                  <span className="font-mono tabular-nums">{bulkProgress.done}/{bulkProgress.total}</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-background overflow-hidden">
+                  <div className="h-full bg-amber-400 transition-[width] duration-200" style={{ width: `${Math.round((bulkProgress.done / Math.max(1, bulkProgress.total)) * 100)}%` }} />
+                </div>
+              </div>
+            )}
+
             <div className="mt-3 flex flex-wrap gap-1.5">
               {([
                 ["all", "All", stats.total],
@@ -691,6 +831,7 @@ function UploadPage() {
             <QueueRow
               key={it.id}
               item={it}
+              isPublishing={publishingIds.has(it.id)}
               onCancel={() => cancelItem(it.id)}
               onRetry={() => retryItem(it.id)}
               onRemove={() => removeItem(it.id)}
@@ -803,9 +944,10 @@ function UploadPage() {
 }
 
 function QueueRow({
-  item, onCancel, onRetry, onRemove, onTitle, onLang, onCat, onThumb, onVisibility, onPublish,
+  item, isPublishing, onCancel, onRetry, onRemove, onTitle, onLang, onCat, onThumb, onVisibility, onPublish,
 }: {
   item: QueueItem;
+  isPublishing?: boolean;
   onCancel: () => void;
   onRetry: () => void;
   onRemove: () => void;
@@ -916,10 +1058,12 @@ function QueueRow({
             <div className="pt-1">
               <button
                 onClick={onPublish}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-[var(--shadow-glow)] hover:scale-105 transition"
+                disabled={isPublishing}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-[var(--shadow-glow)] hover:scale-105 transition disabled:opacity-60 disabled:hover:scale-100"
                 style={{ background: "var(--gradient-brand)" }}
               >
-                <Check className="h-3.5 w-3.5" /> Make Public
+                {isPublishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                {isPublishing ? "Publishing…" : "Make Public"}
               </button>
             </div>
           )}
