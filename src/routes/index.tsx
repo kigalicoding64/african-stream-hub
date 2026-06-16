@@ -6,8 +6,9 @@ import { Hero } from "@/components/Hero";
 import { VideoRail } from "@/components/VideoRail";
 import { VideoCard } from "@/components/VideoCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
+import { ContinueWatchingRail } from "@/components/ContinueWatchingRail";
 import { videos as mockVideos, isPopularAfrica, type Video } from "@/data/videos";
-import { fetchPrioritizedFeed } from "@/lib/videos-api";
+import { fetchPrioritizedFeed, fetchContinueWatching, type ContinueWatchingItem } from "@/lib/videos-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -27,6 +28,7 @@ function Index() {
   const { user } = useAuth();
   const [category, setCategory] = useState("All");
   const [feed, setFeed] = useState<Video[]>(mockVideos);
+  const [continueItems, setContinueItems] = useState<ContinueWatchingItem[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +51,13 @@ function Index() {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!user?.id) { setContinueItems([]); return; }
+    let cancelled = false;
+    fetchContinueWatching(user.id).then((items) => { if (!cancelled) setContinueItems(items); });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
   const featured = feed[0] ?? mockVideos[0];
   const trending = useMemo(() => feed.slice(0, 6), [feed]);
   const slides = useMemo(() => feed.slice(0, 6), [feed]);
@@ -64,6 +73,8 @@ function Index() {
         <Hero video={featured} />
 
         <FeaturedSlider slides={slides} />
+
+        {continueItems.length > 0 && <ContinueWatchingRail items={continueItems} />}
 
         <VideoRail title="Trending in Rwanda" emoji="🔥" videos={trending} />
 
