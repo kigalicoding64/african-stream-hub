@@ -74,6 +74,8 @@ function Index() {
 
         <FeaturedSlider slides={slides} />
 
+        {continueItems.length > 0 && <ContinueWatchingRail items={continueItems} />}
+
         <VideoRail title="Trending in Rwanda" emoji="🔥" videos={trending} />
 
         <section>
