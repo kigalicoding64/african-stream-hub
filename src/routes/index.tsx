@@ -51,6 +51,13 @@ function Index() {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!user?.id) { setContinueItems([]); return; }
+    let cancelled = false;
+    fetchContinueWatching(user.id).then((items) => { if (!cancelled) setContinueItems(items); });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
   const featured = feed[0] ?? mockVideos[0];
   const trending = useMemo(() => feed.slice(0, 6), [feed]);
   const slides = useMemo(() => feed.slice(0, 6), [feed]);
