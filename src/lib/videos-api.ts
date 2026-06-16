@@ -148,6 +148,41 @@ export async function incrementVideoView(id: string): Promise<void> {
   }
 }
 
+export interface ContinueWatchingItem extends Video {
+  resumePosition: number;
+}
+
+/** Returns the user's most-recently-progressed videos with resume positions. */
+export async function fetchContinueWatching(userId: string, limit = 10): Promise<ContinueWatchingItem[]> {
+  const { data: prog } = await supabase
+    .from("video_progress")
+    .select("video_id, position_seconds, updated_at")
+    .eq("user_id", userId)
+    .gt("position_seconds", 5)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (!prog || prog.length === 0) return [];
+  const ids = prog.map((p) => p.video_id as string);
+  const { data: vids } = await supabase
+    .from("videos")
+    .select("*, profiles(display_name, username, avatar_url)")
+    .in("id", ids)
+    .eq("status", "ready");
+  if (!vids) return [];
+  const byId = new Map<string, DbVideo>((vids as unknown as DbVideo[]).map((v) => [v.id, v]));
+  const out: ContinueWatchingItem[] = [];
+  for (const p of prog) {
+    const dbv = byId.get(p.video_id as string);
+    if (!dbv) continue;
+    // Skip near-finished items (>95% watched)
+    const dur = dbv.duration_seconds ?? 0;
+    const pos = (p.position_seconds as number) ?? 0;
+    if (dur && pos >= dur * 0.95) continue;
+    out.push({ ...dbToVideo(dbv), resumePosition: pos });
+  }
+  return out;
+}
+
 export interface CreatorProfile {
   id: string;
   username: string | null;
