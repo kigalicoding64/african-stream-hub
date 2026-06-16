@@ -28,6 +28,7 @@ function Index() {
   const { user } = useAuth();
   const [category, setCategory] = useState("All");
   const [feed, setFeed] = useState<Video[]>(mockVideos);
+  const [continueItems, setContinueItems] = useState<ContinueWatchingItem[]>([]);
 
   useEffect(() => {
     let cancelled = false;
