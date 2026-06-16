@@ -6,8 +6,9 @@ import { Hero } from "@/components/Hero";
 import { VideoRail } from "@/components/VideoRail";
 import { VideoCard } from "@/components/VideoCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
+import { ContinueWatchingRail } from "@/components/ContinueWatchingRail";
 import { videos as mockVideos, isPopularAfrica, type Video } from "@/data/videos";
-import { fetchPrioritizedFeed } from "@/lib/videos-api";
+import { fetchPrioritizedFeed, fetchContinueWatching, type ContinueWatchingItem } from "@/lib/videos-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
