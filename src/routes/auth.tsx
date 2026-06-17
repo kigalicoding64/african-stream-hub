@@ -7,13 +7,14 @@ import { IbonaLogo } from "@/components/IbonaLogo";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
+  ssr: false,
   validateSearch: (s: Record<string, unknown>) => ({
     redirect: typeof s.redirect === "string" ? s.redirect : "/",
     mode: s.mode === "signup" ? "signup" : "login",
   }),
   beforeLoad: async ({ search }) => {
-    const { data } = await supabase.auth.getSession();
-    if (data.session) throw redirect({ to: search.redirect || "/" });
+    const { data, error } = await supabase.auth.getUser();
+    if (!error && data.user) throw redirect({ to: search.redirect || "/" });
   },
   head: () => ({
     meta: [

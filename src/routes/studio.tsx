@@ -7,9 +7,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/studio")({
+  ssr: false,
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/auth", search: { redirect: "/studio", mode: "login" } });
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) throw redirect({ to: "/auth", search: { redirect: "/studio", mode: "login" } });
   },
   head: () => ({
     meta: [
