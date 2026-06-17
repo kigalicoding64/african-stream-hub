@@ -69,7 +69,7 @@ export function dbToVideo(v: DbVideo): Video {
 export async function fetchPublishedVideos(limit = 50): Promise<Video[]> {
   const { data, error } = await supabase
     .from("videos")
-    .select("*, profiles(display_name, username, avatar_url)")
+    .select("*, profiles!videos_owner_profile_fk(display_name, username, avatar_url)")
     .eq("visibility", "public")
     .eq("status", "ready")
     .order("created_at", { ascending: false })
@@ -128,7 +128,7 @@ export async function unfollowCreator(creatorId: string, viewerId: string): Prom
 export async function fetchVideoById(id: string): Promise<Video | null> {
   const { data, error } = await supabase
     .from("videos")
-    .select("*, profiles(display_name, username, avatar_url)")
+    .select("*, profiles!videos_owner_profile_fk(display_name, username, avatar_url)")
     .eq("id", id)
     .maybeSingle();
   if (!error && data) return dbToVideo(data as unknown as DbVideo);
@@ -165,7 +165,7 @@ export async function fetchContinueWatching(userId: string, limit = 10): Promise
   const ids = prog.map((p) => p.video_id as string);
   const { data: vids } = await supabase
     .from("videos")
-    .select("*, profiles(display_name, username, avatar_url)")
+    .select("*, profiles!videos_owner_profile_fk(display_name, username, avatar_url)")
     .in("id", ids)
     .eq("status", "ready");
   if (!vids) return [];
@@ -237,7 +237,7 @@ export async function searchAll(
 
   const publicVideosQ = supabase
     .from("videos")
-    .select("*, profiles(display_name, username, avatar_url)")
+    .select("*, profiles!videos_owner_profile_fk(display_name, username, avatar_url)")
     .eq("visibility", "public")
     .eq("status", "ready")
     .or(`title.ilike.${like},description.ilike.${like}`)
@@ -247,7 +247,7 @@ export async function searchAll(
   const draftVideosQ = includeDrafts
     ? supabase
         .from("videos")
-        .select("*, profiles(display_name, username, avatar_url)")
+        .select("*, profiles!videos_owner_profile_fk(display_name, username, avatar_url)")
         .eq("owner_id", opts.viewerId!)
         .neq("visibility", "public")
         .or(`title.ilike.${like},description.ilike.${like}`)
@@ -304,7 +304,7 @@ export async function searchAll(
 export async function fetchVideosByOwner(ownerId: string): Promise<Video[]> {
   const { data, error } = await supabase
     .from("videos")
-    .select("*, profiles(display_name, username, avatar_url)")
+    .select("*, profiles!videos_owner_profile_fk(display_name, username, avatar_url)")
     .eq("owner_id", ownerId)
     .eq("visibility", "public")
     .eq("status", "ready")
