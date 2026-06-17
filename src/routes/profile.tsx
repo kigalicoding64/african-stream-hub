@@ -9,9 +9,10 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Video } from "@/data/videos";
 
 export const Route = createFileRoute("/profile")({
+  ssr: false,
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/auth", search: { redirect: "/profile", mode: "login" } });
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) throw redirect({ to: "/auth", search: { redirect: "/profile", mode: "login" } });
   },
   head: () => ({
     meta: [

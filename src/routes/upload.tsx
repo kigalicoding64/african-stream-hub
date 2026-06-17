@@ -10,9 +10,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/upload")({
+  ssr: false,
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/auth", search: { redirect: "/upload", mode: "login" } });
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) throw redirect({ to: "/auth", search: { redirect: "/upload", mode: "login" } });
   },
   head: () => ({
     meta: [

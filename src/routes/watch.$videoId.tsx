@@ -294,7 +294,7 @@ function WatchPage() {
     }
     const { data } = await supabase
       .from("comments")
-      .select("id, user_id, video_id, body, created_at, edited, profiles(display_name, username, avatar_url)")
+      .select("id, user_id, video_id, body, created_at, edited, profiles!comments_user_profile_fk(display_name, username, avatar_url)")
       .eq("video_id", videoId)
       .order("created_at", { ascending: false });
     setComments((data as unknown as DbComment[]) ?? []);
