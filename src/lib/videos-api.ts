@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { videos as mockVideos, type Video } from "@/data/videos";
+import type { Video } from "@/data/videos";
 
 export interface DbVideo {
   id: string;
@@ -269,37 +269,8 @@ export async function searchAll(
     ...(((dRes as { data: unknown }).data as DbVideo[] | null) ?? []).map(dbToVideo),
     ...((vRes.data as unknown as DbVideo[]) ?? []).map(dbToVideo),
   ];
-  
   const dbCreators = (cRes.data as CreatorProfile[]) ?? [];
-
-  // Also search the seeded mock catalog so the 100+ "Popular Africa" items are findable.
-  const t = term.toLowerCase();
-  const mockMatchVideos = mockVideos.filter((v) =>
-    v.title.toLowerCase().includes(t) ||
-    v.description.toLowerCase().includes(t) ||
-    v.creator.toLowerCase().includes(t),
-  );
-  const mockCreatorMap = new Map<string, CreatorProfile>();
-  for (const v of mockVideos) {
-    if (!v.creatorUsername) continue;
-    if (!v.creator.toLowerCase().includes(t) && !v.creatorUsername.toLowerCase().includes(t)) continue;
-    if (mockCreatorMap.has(v.creatorUsername)) continue;
-    mockCreatorMap.set(v.creatorUsername, {
-      id: `mock:${v.creatorUsername}`,
-      username: v.creatorUsername,
-      display_name: v.creator,
-      avatar_url: null,
-      banner_url: null,
-      bio: null,
-    });
-  }
-  const seenUsernames = new Set(dbCreators.map((c) => c.username));
-  const mergedCreators = [
-    ...dbCreators,
-    ...Array.from(mockCreatorMap.values()).filter((c) => !seenUsernames.has(c.username)),
-  ];
-
-  return { videos: [...dbVideos, ...mockMatchVideos], creators: mergedCreators };
+  return { videos: dbVideos, creators: dbCreators };
 }
 
 export async function fetchVideosByOwner(ownerId: string): Promise<Video[]> {

@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Heart, MessageCircle, Share2, Music2 } from "lucide-react";
-import { useState } from "react";
-import { videos } from "@/data/videos";
+import { useEffect, useState } from "react";
+import type { Video } from "@/data/videos";
+import { fetchPublishedVideos } from "@/lib/videos-api";
 import { MobileBottomNav } from "@/components/Sidebar";
 import { IbonaLogo } from "@/components/IbonaLogo";
 
@@ -16,21 +17,31 @@ export const Route = createFileRoute("/shorts")({
 });
 
 function ShortsPage() {
+  const [videos, setVideos] = useState<Video[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchPublishedVideos(100).then((v) => { if (!cancelled) setVideos(v); });
+    return () => { cancelled = true; };
+  }, []);
   return (
     <div className="min-h-screen bg-black text-white">
       <header className="fixed top-0 inset-x-0 z-30 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/80 to-transparent">
         <Link to="/"><IbonaLogo /></Link>
         <div className="text-sm font-bold uppercase tracking-widest text-primary">Shorts</div>
       </header>
-      <div className="snap-y snap-mandatory h-screen overflow-y-scroll scrollbar-none">
-        {videos.map((v) => <Short key={v.id} video={v} />)}
-      </div>
+      {videos.length === 0 ? (
+        <div className="h-screen flex items-center justify-center text-white/60">No shorts uploaded yet.</div>
+      ) : (
+        <div className="snap-y snap-mandatory h-screen overflow-y-scroll scrollbar-none">
+          {videos.map((v) => <Short key={v.id} video={v} />)}
+        </div>
+      )}
       <MobileBottomNav />
     </div>
   );
 }
 
-function Short({ video }: { video: (typeof videos)[number] }) {
+function Short({ video }: { video: Video }) {
   const [liked, setLiked] = useState(false);
   return (
     <section className="snap-start relative h-screen w-full flex items-center justify-center bg-black">
