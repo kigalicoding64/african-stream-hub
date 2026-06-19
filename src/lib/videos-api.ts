@@ -106,13 +106,14 @@ export async function fetchPrioritizedFeed(userId: string | null): Promise<Video
 // ---- Follows ----
 
 export async function getFollowState(creatorId: string, viewerId: string | null): Promise<{ following: boolean; followers: number }> {
-  const [{ count }, mine] = await Promise.all([
-    supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", creatorId),
+  const [countRes, mine] = await Promise.all([
+    supabase.rpc("get_follower_count", { _creator: creatorId }),
     viewerId
       ? supabase.from("follows").select("id").eq("follower_id", viewerId).eq("following_id", creatorId).maybeSingle()
       : Promise.resolve({ data: null } as { data: null }),
   ]);
-  return { following: !!(mine as { data: unknown }).data, followers: count ?? 0 };
+  const followers = typeof countRes.data === "number" ? countRes.data : Number(countRes.data ?? 0);
+  return { following: !!(mine as { data: unknown }).data, followers };
 }
 
 export async function followCreator(creatorId: string, viewerId: string): Promise<void> {
