@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { VideoCard } from "@/components/VideoCard";
-import { getVideoById, videos as mockVideos, type Language, type Video } from "@/data/videos";
+import { getVideoById, type Language, type Video } from "@/data/videos";
 import { fetchVideoById, fetchAllFeed, incrementVideoView, getLikeState, likeVideo, unlikeVideo } from "@/lib/videos-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -100,9 +100,7 @@ function WatchPage() {
 
   const [video, setVideo] = useState<Video | null>(initialVideo);
   const [loadingVideo, setLoadingVideo] = useState(!initialVideo);
-  const [suggestions, setSuggestions] = useState<Video[]>(
-    mockVideos.filter((v) => v.id !== videoId).slice(0, 6)
-  );
+  const [suggestions, setSuggestions] = useState<Video[]>([]);
 
   // UI state
   const [liked, setLiked] = useState(false);

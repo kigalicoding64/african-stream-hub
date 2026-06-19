@@ -7,7 +7,7 @@ import { VideoRail } from "@/components/VideoRail";
 import { VideoCard } from "@/components/VideoCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { ContinueWatchingRail } from "@/components/ContinueWatchingRail";
-import { videos as mockVideos, isPopularAfrica, type Video } from "@/data/videos";
+import { isPopularAfrica, type Video } from "@/data/videos";
 import { fetchPrioritizedFeed, fetchContinueWatching, type ContinueWatchingItem } from "@/lib/videos-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,13 +27,13 @@ export const Route = createFileRoute("/")({
 function Index() {
   const { user } = useAuth();
   const [category, setCategory] = useState("All");
-  const [feed, setFeed] = useState<Video[]>(mockVideos);
+  const [feed, setFeed] = useState<Video[]>([]);
   const [continueItems, setContinueItems] = useState<ContinueWatchingItem[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     const load = () => fetchPrioritizedFeed(user?.id ?? null).then((list) => {
-      if (!cancelled && list.length) setFeed(list);
+      if (!cancelled) setFeed(list);
     });
     load();
     const ch = supabase
@@ -58,7 +58,7 @@ function Index() {
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  const featured = feed[0] ?? mockVideos[0];
+  const featured = feed[0];
   const trending = useMemo(() => feed.slice(0, 6), [feed]);
   const slides = useMemo(() => feed.slice(0, 6), [feed]);
   const filtered = useMemo(() => {
@@ -70,7 +70,7 @@ function Index() {
   return (
     <AppLayout>
       <div className="space-y-10 animate-fade-in">
-        <Hero video={featured} />
+        {featured && <Hero video={featured} />}
 
         <FeaturedSlider slides={slides} />
 
