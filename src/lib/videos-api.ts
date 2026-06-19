@@ -79,9 +79,8 @@ export async function fetchPublishedVideos(limit = 50): Promise<Video[]> {
 }
 
 export async function fetchAllFeed(): Promise<Video[]> {
-  const dbVideos = await fetchPublishedVideos(50);
-  // Real uploads first, then mock catalog
-  return [...dbVideos, ...mockVideos];
+  // Real uploads only — mock catalog has been retired in favor of creator uploads.
+  return await fetchPublishedVideos(100);
 }
 
 /** Returns feed with videos from creators the current user follows pinned to the top. */
