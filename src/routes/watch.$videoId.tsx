@@ -507,7 +507,7 @@ function WatchPage() {
                 <track
                   key={l}
                   kind="subtitles"
-                  src={VTT_BY_LANG[l]}
+                  src={captionByLang[l]}
                   srcLang={LANG_CODE[l]}
                   label={l}
                   default={l === language && subsOn}
