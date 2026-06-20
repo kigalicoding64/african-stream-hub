@@ -170,6 +170,7 @@ function StudioPage() {
       </div>
 
       {editing && <EditModal row={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} />}
+      {aiVideoId && <AiAssistantModal videoId={aiVideoId} onClose={() => setAiVideoId(null)} onApply={() => refresh()} />}
     </AppLayout>
   );
 }
