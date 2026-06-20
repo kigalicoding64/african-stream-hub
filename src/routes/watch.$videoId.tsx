@@ -61,7 +61,8 @@ export const Route = createFileRoute("/watch/$videoId")({
 });
 
 const ALL_LANGS: Language[] = ["Kinyarwanda", "Swahili", "English"];
-const VTT_BY_LANG: Record<Language, string> = {
+// Fallback (mock) VTTs used only when no AI captions exist for a video.
+const FALLBACK_VTT_BY_LANG: Record<Language, string> = {
   Kinyarwanda: "/subtitles/v1.rw.vtt",
   Swahili: "/subtitles/v1.sw.vtt",
   English: "/subtitles/v1.en.vtt",
@@ -71,6 +72,9 @@ const LANG_CODE: Record<Language, string> = {
   Swahili: "sw",
   English: "en",
 };
+const CODE_TO_LANG: Record<string, Language> = { rw: "Kinyarwanda", sw: "Swahili", en: "English" };
+
+interface DbCaption { language: string; vtt_url: string; is_default: boolean }
 
 interface DbComment {
   id: string;
