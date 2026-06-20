@@ -61,7 +61,8 @@ export const Route = createFileRoute("/watch/$videoId")({
 });
 
 const ALL_LANGS: Language[] = ["Kinyarwanda", "Swahili", "English"];
-const VTT_BY_LANG: Record<Language, string> = {
+// Fallback (mock) VTTs used only when no AI captions exist for a video.
+const FALLBACK_VTT_BY_LANG: Record<Language, string> = {
   Kinyarwanda: "/subtitles/v1.rw.vtt",
   Swahili: "/subtitles/v1.sw.vtt",
   English: "/subtitles/v1.en.vtt",
@@ -71,6 +72,9 @@ const LANG_CODE: Record<Language, string> = {
   Swahili: "sw",
   English: "en",
 };
+const CODE_TO_LANG: Record<string, Language> = { rw: "Kinyarwanda", sw: "Swahili", en: "English" };
+
+interface DbCaption { language: string; vtt_url: string; is_default: boolean }
 
 interface DbComment {
   id: string;
@@ -126,6 +130,30 @@ function WatchPage() {
   const miniRef = useRef<HTMLVideoElement>(null);
   const restoredRef = useRef(false);
   const lastSavedRef = useRef(0);
+
+  // ── Captions from DB ───────────────────────────────────────────────────────
+  const [dbCaptions, setDbCaptions] = useState<DbCaption[]>([]);
+  useEffect(() => {
+    if (!isUuid(videoId)) { setDbCaptions([]); return; }
+    let cancelled = false;
+    supabase
+      .from("video_captions")
+      .select("language, vtt_url, is_default")
+      .eq("video_id", videoId)
+      .then(({ data }) => {
+        if (!cancelled) setDbCaptions((data as DbCaption[]) ?? []);
+      });
+    return () => { cancelled = true; };
+  }, [videoId]);
+
+  const captionByLang = useMemo(() => {
+    const m: Record<Language, string> = { ...FALLBACK_VTT_BY_LANG };
+    for (const c of dbCaptions) {
+      const lang = CODE_TO_LANG[c.language];
+      if (lang) m[lang] = c.vtt_url;
+    }
+    return m;
+  }, [dbCaptions]);
 
   // ── Fetch real video + suggestions ─────────────────────────────────────────
   useEffect(() => {
@@ -479,7 +507,7 @@ function WatchPage() {
                 <track
                   key={l}
                   kind="subtitles"
-                  src={VTT_BY_LANG[l]}
+                  src={captionByLang[l]}
                   srcLang={LANG_CODE[l]}
                   label={l}
                   default={l === language && subsOn}
