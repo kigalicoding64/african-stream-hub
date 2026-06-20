@@ -256,33 +256,19 @@ export const generateVideoMetadata = createServerFn({ method: 'POST' })
   });
 
 // =========================================================================
-// runPostUploadPipeline — fire-and-forget orchestrator
+// markPipelinePending — flag both jobs as pending so the UI shows progress
+// immediately. Client calls transcribeVideo + generateVideoMetadata in sequence.
 // =========================================================================
-export const runPostUploadPipeline = createServerFn({ method: 'POST' })
+export const markPipelinePending = createServerFn({ method: 'POST' })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => VideoIdInput.parse(input))
   .handler(async ({ data, context }) => {
     const supabase = getSupabaseFromContext(context);
     const userId = (context as { userId: string }).userId;
     await ensureOwner(supabase, userId, data.videoId);
-
-    // Mark both pending immediately so UI can show progress
     await upsertJob(supabase, data.videoId, 'captions', 'pending');
     await upsertJob(supabase, data.videoId, 'metadata', 'pending');
-
-    // Run sequentially: captions first (provides transcript), then metadata.
-    // Don't await — return immediately so client polls ai_jobs.
-    (async () => {
-      try {
-        const { transcribeAudio, chatJSON } = await import('./ai-gateway.server');
-        void transcribeAudio; void chatJSON; // ensure module loaded
-        // We can't call our own server fns recursively here; replicate the work inline
-        // by re-importing the same logic isn't ideal. Simplest: do the two steps
-        // inline using direct calls.
-      } catch { /* ignore — fall through to direct calls */ }
-    })();
-
-    return { ok: true, queued: true };
+    return { ok: true };
   });
 
 // =========================================================================
