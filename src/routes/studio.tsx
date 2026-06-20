@@ -1,10 +1,11 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Upload as UploadIcon, Eye, Heart, Trash2, Edit3, Loader2, Film, X, Check, BarChart3, Users, MessageCircle } from "lucide-react";
+import { Upload as UploadIcon, Eye, Heart, Trash2, Edit3, Loader2, Film, X, Check, BarChart3, Users, MessageCircle, Sparkles, RefreshCw, Copy, Languages, FileText } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { transcribeVideo, generateVideoMetadata, getAiStatus } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/studio")({
   ssr: false,
