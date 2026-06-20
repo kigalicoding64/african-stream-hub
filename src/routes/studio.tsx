@@ -42,6 +42,7 @@ function StudioPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Row | null>(null);
+  const [aiVideoId, setAiVideoId] = useState<string | null>(null);
   const [commentCount, setCommentCount] = useState(0);
   const navigate = useNavigate();
 
