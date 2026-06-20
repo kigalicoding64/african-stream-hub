@@ -152,6 +152,7 @@ function StudioPage() {
                     <Metric label="Likes" value={r.likes} />
                   </div>
                   <div className="flex gap-2 ml-auto">
+                    <button onClick={() => setAiVideoId(r.id)} title="AI assistant" className="h-9 w-9 rounded-full bg-surface-elevated hover:bg-primary/20 flex items-center justify-center transition" aria-label="AI"><Sparkles className="h-4 w-4 text-primary" /></button>
                     <button onClick={() => setEditing(r)} className="h-9 w-9 rounded-full bg-surface-elevated hover:bg-primary/20 flex items-center justify-center transition" aria-label="Edit"><Edit3 className="h-4 w-4" /></button>
                     <button onClick={() => onDelete(r.id)} className="h-9 w-9 rounded-full bg-surface-elevated hover:bg-destructive/20 hover:text-destructive flex items-center justify-center transition" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
                   </div>
