@@ -131,6 +131,30 @@ function WatchPage() {
   const restoredRef = useRef(false);
   const lastSavedRef = useRef(0);
 
+  // ── Captions from DB ───────────────────────────────────────────────────────
+  const [dbCaptions, setDbCaptions] = useState<DbCaption[]>([]);
+  useEffect(() => {
+    if (!isUuid(videoId)) { setDbCaptions([]); return; }
+    let cancelled = false;
+    supabase
+      .from("video_captions")
+      .select("language, vtt_url, is_default")
+      .eq("video_id", videoId)
+      .then(({ data }) => {
+        if (!cancelled) setDbCaptions((data as DbCaption[]) ?? []);
+      });
+    return () => { cancelled = true; };
+  }, [videoId]);
+
+  const captionByLang = useMemo(() => {
+    const m: Record<Language, string> = { ...FALLBACK_VTT_BY_LANG };
+    for (const c of dbCaptions) {
+      const lang = CODE_TO_LANG[c.language];
+      if (lang) m[lang] = c.vtt_url;
+    }
+    return m;
+  }, [dbCaptions]);
+
   // ── Fetch real video + suggestions ─────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
