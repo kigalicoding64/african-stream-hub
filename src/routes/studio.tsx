@@ -246,3 +246,179 @@ function EditModal({ row, onClose, onSaved }: { row: Row; onClose: () => void; o
     </div>
   );
 }
+
+interface AiJob { kind: string; status: string; error: string | null; updated_at: string }
+interface AiMeta {
+  seo_title: string | null; seo_description: string | null;
+  summary_short: string | null; summary_long: string | null;
+  key_takeaways: string[] | null; tags: string[] | null; hashtags: string[] | null;
+  category_suggested: string | null; topic: string | null; audience: string | null;
+  social_posts: { x?: string; facebook?: string; linkedin?: string } | null;
+  detected_language: string | null;
+}
+interface AiCap { language: string; vtt_url: string; is_default: boolean }
+
+function AiAssistantModal({ videoId, onClose, onApply }: { videoId: string; onClose: () => void; onApply: () => void }) {
+  const [jobs, setJobs] = useState<AiJob[]>([]);
+  const [meta, setMeta] = useState<AiMeta | null>(null);
+  const [captions, setCaptions] = useState<AiCap[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<"captions" | "metadata" | null>(null);
+
+  const load = async () => {
+    try {
+      const r = await getAiStatus({ data: { videoId } });
+      setJobs(r.jobs as AiJob[]);
+      setMeta((r.metadata as AiMeta | null) ?? null);
+      setCaptions((r.captions as AiCap[]) ?? []);
+    } finally { setLoading(false); }
+  };
+  useEffect(() => {
+    load();
+    const id = setInterval(load, 3000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoId]);
+
+  const runCaptions = async () => {
+    setBusy("captions");
+    try {
+      const r = await transcribeVideo({ data: { videoId } });
+      if ((r as { ok: boolean }).ok) toast.success("Captions generated");
+      else toast.error("Caption generation failed", { description: (r as { error?: string }).error });
+    } catch (e) { toast.error("Caption generation failed", { description: (e as Error).message }); }
+    setBusy(null); load();
+  };
+  const runMetadata = async () => {
+    setBusy("metadata");
+    try {
+      const r = await generateVideoMetadata({ data: { videoId } });
+      if ((r as { ok: boolean }).ok) toast.success("AI metadata ready");
+      else toast.error("Metadata generation failed", { description: (r as { error?: string }).error });
+    } catch (e) { toast.error("Metadata generation failed", { description: (e as Error).message }); }
+    setBusy(null); load();
+  };
+
+  const applyMetadata = async () => {
+    if (!meta?.seo_title) return;
+    const { error } = await supabase.from("videos").update({
+      title: meta.seo_title,
+      description: meta.seo_description ?? meta.summary_long ?? "",
+    }).eq("id", videoId);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Applied AI title & description");
+    onApply();
+  };
+  const copy = (s: string) => { navigator.clipboard.writeText(s); toast.success("Copied"); };
+
+  const jobStatus = (kind: string) => jobs.find((j) => j.kind === kind);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-popover p-6 shadow-[var(--shadow-elegant)] animate-scale-in">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /><h3 className="text-xl font-bold">AI Assistant</h3></div>
+          <button onClick={onClose} className="h-8 w-8 rounded-full bg-surface flex items-center justify-center"><X className="h-4 w-4" /></button>
+        </div>
+
+        {loading ? <div className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></div> : (
+          <div className="space-y-5">
+            {/* Captions */}
+            <section className="rounded-2xl border border-border p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 font-bold"><Languages className="h-4 w-4 text-primary" /> Captions</div>
+                <button onClick={runCaptions} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-50">
+                  {busy === "captions" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} {captions.length ? "Regenerate" : "Generate"}
+                </button>
+              </div>
+              <JobBadge job={jobStatus("captions")} />
+              {captions.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {captions.map((c) => (
+                    <a key={c.language} href={c.vtt_url} target="_blank" rel="noreferrer" className="text-[11px] rounded-full bg-surface-elevated px-2.5 py-1 hover:bg-primary/15 hover:text-primary">
+                      {c.language.toUpperCase()}{c.is_default ? " ★" : ""}
+                    </a>
+                  ))}
+                </div>
+              ) : <p className="text-xs text-muted-foreground mt-1">No captions yet. Generate to add Kinyarwanda + English + French + Swahili subtitles.</p>}
+            </section>
+
+            {/* Metadata */}
+            <section className="rounded-2xl border border-border p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 font-bold"><FileText className="h-4 w-4 text-primary" /> SEO & Metadata</div>
+                <button onClick={runMetadata} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-50">
+                  {busy === "metadata" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} {meta?.seo_title ? "Regenerate" : "Generate"}
+                </button>
+              </div>
+              <JobBadge job={jobStatus("metadata")} />
+              {meta?.seo_title ? (
+                <div className="mt-3 space-y-3 text-sm">
+                  <Field label="Suggested title" value={meta.seo_title} onCopy={() => copy(meta.seo_title!)} />
+                  <Field label="Suggested description" value={meta.seo_description ?? ""} multiline onCopy={() => meta.seo_description && copy(meta.seo_description)} />
+                  {meta.summary_short && <Field label="Short summary" value={meta.summary_short} multiline />}
+                  {meta.summary_long && <Field label="Detailed summary" value={meta.summary_long} multiline />}
+                  {meta.key_takeaways && meta.key_takeaways.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">Key takeaways</div>
+                      <ul className="list-disc list-inside text-xs space-y-0.5">{meta.key_takeaways.map((k, i) => <li key={i}>{k}</li>)}</ul>
+                    </div>
+                  )}
+                  {meta.tags && meta.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {meta.tags.map((t) => <span key={t} className="text-[11px] rounded-full bg-surface-elevated px-2 py-0.5">{t}</span>)}
+                    </div>
+                  )}
+                  {meta.hashtags && meta.hashtags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {meta.hashtags.map((t) => <span key={t} className="text-[11px] rounded-full bg-primary/15 text-primary px-2 py-0.5">{t}</span>)}
+                    </div>
+                  )}
+                  {meta.social_posts && (
+                    <div className="space-y-2">
+                      <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Social posts</div>
+                      {meta.social_posts.x && <Field label="X / Twitter" value={meta.social_posts.x} multiline onCopy={() => copy(meta.social_posts!.x!)} />}
+                      {meta.social_posts.facebook && <Field label="Facebook" value={meta.social_posts.facebook} multiline onCopy={() => copy(meta.social_posts!.facebook!)} />}
+                      {meta.social_posts.linkedin && <Field label="LinkedIn" value={meta.social_posts.linkedin} multiline onCopy={() => copy(meta.social_posts!.linkedin!)} />}
+                    </div>
+                  )}
+                  <button onClick={applyMetadata} className="w-full rounded-full px-4 py-2 text-sm font-bold text-primary-foreground" style={{ background: "var(--gradient-brand)" }}>
+                    Apply AI title & description to video
+                  </button>
+                </div>
+              ) : <p className="text-xs text-muted-foreground mt-1">No metadata yet. Generate to get an SEO title, description, tags, hashtags, summaries, and social posts.</p>}
+            </section>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function JobBadge({ job }: { job: AiJob | undefined }) {
+  if (!job) return null;
+  const cls = job.status === "done" ? "bg-emerald-500/15 text-emerald-500"
+    : job.status === "running" ? "bg-primary/15 text-primary"
+    : job.status === "failed" ? "bg-destructive/15 text-destructive"
+    : "bg-surface-elevated text-muted-foreground";
+  return (
+    <div className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${cls}`}>
+      {job.status === "running" && <Loader2 className="h-3 w-3 animate-spin" />}
+      {job.status}{job.error ? ` · ${job.error.slice(0, 60)}` : ""}
+    </div>
+  );
+}
+
+function Field({ label, value, multiline, onCopy }: { label: string; value: string; multiline?: boolean; onCopy?: () => void }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">{label}</div>
+        {onCopy && <button onClick={onCopy} className="text-[10px] text-muted-foreground hover:text-primary inline-flex items-center gap-1"><Copy className="h-3 w-3" /> Copy</button>}
+      </div>
+      {multiline
+        ? <p className="rounded-lg bg-surface border border-border px-3 py-2 text-xs whitespace-pre-wrap">{value}</p>
+        : <p className="rounded-lg bg-surface border border-border px-3 py-2 text-xs">{value}</p>}
+    </div>
+  );
+}
