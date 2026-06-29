@@ -84,6 +84,8 @@ function Index() {
 
         <FeaturedSlider slides={slides} />
 
+        {continueItems.length > 0 && <ContinueWatchingRail items={continueItems} />}
+
         {forYou.length > 0 && <VideoRail title="For you" emoji="✨" videos={forYou} />}
 
         <VideoRail title="Trending in Rwanda" emoji="🔥" videos={trending} />
@@ -96,7 +98,7 @@ function Index() {
         </section>
 
         <section>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-4 px-1">For you</h2>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-4 px-1">{category === "All" ? "Latest on IBONA" : category}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {filtered.map((v) => (
               <VideoCard key={v.id} video={v} />
