@@ -1,15 +1,20 @@
-// Server-only helper for calling the Lovable AI Gateway.
-// Keep this file behind a server function boundary — never import from client code.
+// Server-only helper for AI providers used by IBONA.
+// Never import this file from client code — it relies on server-only env vars.
 
 const GATEWAY = 'https://ai.gateway.lovable.dev/v1';
+const ASSEMBLY = 'https://api.assemblyai.com/v2';
 
-function getKey(): string {
+function getLovableKey(): string {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) throw new Error('LOVABLE_API_KEY is not configured');
   return key;
 }
 
-/** Call /chat/completions with structured JSON output. */
+function getAssemblyKey(): string | null {
+  return process.env.ASSEMBLYAI_API_KEY ?? null;
+}
+
+/** Call /chat/completions with structured JSON output via the Lovable AI Gateway. */
 export async function chatJSON<T = unknown>(opts: {
   model?: string;
   system?: string;
@@ -29,22 +34,19 @@ export async function chatJSON<T = unknown>(opts: {
   };
   const res = await fetch(`${GATEWAY}/chat/completions`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Lovable-API-Key': getKey(),
-    },
+    headers: { 'Content-Type': 'application/json', 'Lovable-API-Key': getLovableKey() },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`AI Gateway chat failed: ${res.status} ${text.slice(0, 300)}`);
   }
-  const json = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const content = json.choices?.[0]?.message?.content ?? '{}';
   return JSON.parse(content) as T;
 }
 
-/** Call /audio/transcriptions with a remote audio/video URL. Downloads the file server-side first. */
+/** Small-file fallback transcription via gateway Whisper (sentence-level only). */
 export async function transcribeAudio(opts: {
   fileUrl: string;
   filename?: string;
@@ -54,23 +56,127 @@ export async function transcribeAudio(opts: {
   const fileRes = await fetch(opts.fileUrl);
   if (!fileRes.ok) throw new Error(`Failed to fetch media: ${fileRes.status}`);
   const blob = await fileRes.blob();
-  // Cap at 25MB — gateway rejects larger. For MVP we skip transcription on oversize files.
   if (blob.size > 25 * 1024 * 1024) {
     throw new Error(`Media too large for transcription (${(blob.size / 1024 / 1024).toFixed(1)}MB). 25MB max.`);
   }
   const fd = new FormData();
-  const inferredName = opts.filename ?? (opts.fileUrl.split('/').pop() ?? 'media');
-  fd.append('file', blob, inferredName);
+  fd.append('file', blob, opts.filename ?? 'media');
   fd.append('model', model);
   const res = await fetch(`${GATEWAY}/audio/transcriptions`, {
     method: 'POST',
-    headers: { 'Lovable-API-Key': getKey() },
+    headers: { 'Lovable-API-Key': getLovableKey() },
     body: fd,
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Transcription failed: ${res.status} ${text.slice(0, 300)}`);
   }
-  const json = await res.json() as { text?: string; language?: string };
+  const json = (await res.json()) as { text?: string; language?: string };
   return { text: json.text ?? '', language: json.language };
+}
+
+export interface AAIWord {
+  text: string;
+  start: number; // ms
+  end: number;   // ms
+}
+
+/**
+ * Real word-level transcription via AssemblyAI. Returns full text + words with ms timestamps
+ * + detected language (ISO 639-1). Handles large media files via remote URL ingestion.
+ */
+export async function assemblyAITranscribe(opts: {
+  audioUrl: string;
+}): Promise<{ text: string; words: AAIWord[]; language: string }> {
+  const key = getAssemblyKey();
+  if (!key) throw new Error('ASSEMBLYAI_API_KEY is not configured');
+
+  // 1. Submit
+  const submit = await fetch(`${ASSEMBLY}/transcript`, {
+    method: 'POST',
+    headers: { authorization: key, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      audio_url: opts.audioUrl,
+      language_detection: true,
+      punctuate: true,
+      format_text: true,
+      speech_model: 'universal',
+    }),
+  });
+  if (!submit.ok) {
+    const t = await submit.text().catch(() => '');
+    throw new Error(`AssemblyAI submit failed: ${submit.status} ${t.slice(0, 300)}`);
+  }
+  const { id } = (await submit.json()) as { id: string };
+
+  // 2. Poll
+  const deadline = Date.now() + 1000 * 60 * 10; // 10 minutes max
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 4000));
+    const poll = await fetch(`${ASSEMBLY}/transcript/${id}`, { headers: { authorization: key } });
+    if (!poll.ok) continue;
+    const data = (await poll.json()) as {
+      status: 'queued' | 'processing' | 'completed' | 'error';
+      text?: string;
+      words?: AAIWord[];
+      language_code?: string;
+      error?: string;
+    };
+    if (data.status === 'completed') {
+      return {
+        text: data.text ?? '',
+        words: data.words ?? [],
+        language: (data.language_code ?? 'en').slice(0, 2),
+      };
+    }
+    if (data.status === 'error') throw new Error(`AssemblyAI: ${data.error ?? 'transcription error'}`);
+  }
+  throw new Error('AssemblyAI transcription timed out');
+}
+
+/**
+ * Generate an image (cover thumbnail) via the Lovable AI Gateway using Gemini image preview.
+ * Returns a PNG data URL (base64) so callers can re-upload to Supabase storage.
+ */
+export async function generateImage(prompt: string): Promise<{ dataUrl: string }> {
+  const res = await fetch(`${GATEWAY}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Lovable-API-Key': getLovableKey() },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash-image-preview',
+      messages: [{ role: 'user', content: prompt }],
+      modalities: ['image', 'text'],
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error(`AI Gateway image failed: ${res.status} ${t.slice(0, 300)}`);
+  }
+  const j = (await res.json()) as {
+    choices?: Array<{ message?: { images?: Array<{ image_url?: { url?: string } }> } }>;
+  };
+  const url = j.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  if (!url) throw new Error('Gateway returned no image');
+  return { dataUrl: url };
+}
+
+/** Generate an embedding for arbitrary text. Returns a 768-dim vector by default. */
+export async function embedText(text: string): Promise<number[]> {
+  // Lovable AI Gateway exposes OpenAI-compatible embeddings endpoint.
+  const res = await fetch(`${GATEWAY}/embeddings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Lovable-API-Key': getLovableKey() },
+    body: JSON.stringify({
+      model: 'openai/text-embedding-3-small',
+      input: text.slice(0, 8000),
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error(`AI Gateway embed failed: ${res.status} ${t.slice(0, 300)}`);
+  }
+  const j = (await res.json()) as { data?: Array<{ embedding?: number[] }> };
+  const emb = j.data?.[0]?.embedding;
+  if (!emb || !Array.isArray(emb)) throw new Error('Embedding gateway returned empty vector');
+  return emb;
 }
