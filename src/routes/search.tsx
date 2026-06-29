@@ -5,7 +5,9 @@ import { z } from "zod";
 import { Loader2, Search as SearchIcon, Sparkles, EyeOff } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { VideoCard } from "@/components/VideoCard";
-import { searchAll, type CreatorProfile } from "@/lib/videos-api";
+import { searchAll, dbToVideo, type CreatorProfile, type DbVideo } from "@/lib/videos-api";
+import { supabase } from "@/integrations/supabase/client";
+import { semanticSearch } from "@/lib/search.functions";
 import { isPopularAfrica, type Video } from "@/data/videos";
 import { useAuth } from "@/contexts/AuthContext";
 
