@@ -367,7 +367,39 @@ function AiAssistantModal({ videoId, ownerId, onClose, onApply }: { videoId: str
 
         {loading ? <div className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></div> : (
           <div className="space-y-5">
-            {/* Captions */}
+            {/* Thumbnails */}
+            <section className="rounded-2xl border border-border p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 font-bold"><ImageIcon className="h-4 w-4 text-primary" /> Thumbnails</div>
+                <div className="flex gap-2">
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCustom(f); e.target.value = ""; }} />
+                  <button onClick={() => fileRef.current?.click()} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold border border-border bg-background hover:bg-surface-elevated disabled:opacity-50">
+                    <UploadIcon className="h-3.5 w-3.5" /> Upload custom
+                  </button>
+                  <button onClick={runThumbs} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-50">
+                    {busy === "thumbnails" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} {thumbs.length ? "Regenerate 3" : "Generate 3"}
+                  </button>
+                </div>
+              </div>
+              <JobBadge job={jobStatus("thumbnails")} />
+              {thumbs.length > 0 ? (
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {thumbs.map((t) => (
+                    <button key={t.id} onClick={() => pickThumb(t.url)} className={`relative aspect-video overflow-hidden rounded-xl border-2 transition ${t.selected ? "border-primary shadow-[var(--shadow-glow)]" : "border-border hover:border-primary/60"}`}>
+                      <img src={t.url} alt="" className="w-full h-full object-cover" />
+                      {t.selected && (
+                        <div className="absolute top-1 right-1 rounded-full bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold flex items-center gap-0.5">
+                          <Star className="h-2.5 w-2.5" /> SELECTED
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 bg-background/80 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5">{t.source}</div>
+                    </button>
+                  ))}
+                </div>
+              ) : <p className="text-xs text-muted-foreground mt-1">No thumbnails yet. Generate 3 AI thumbnails or upload your own.</p>}
+            </section>
+
+
             <section className="rounded-2xl border border-border p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2 font-bold"><Languages className="h-4 w-4 text-primary" /> Captions</div>
