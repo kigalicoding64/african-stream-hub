@@ -34,16 +34,51 @@ export const Route = createFileRoute("/watch/$videoId")({
     const video = getVideoById(params.videoId);
     return { initialVideo: video ?? null, videoId: params.videoId };
   },
-  head: ({ loaderData }) => ({
-    meta: loaderData?.initialVideo
-      ? [
-          { title: `${loaderData.initialVideo.title} — IBONA` },
-          { name: "description", content: loaderData.initialVideo.description },
-          { property: "og:title", content: loaderData.initialVideo.title },
-          { property: "og:image", content: loaderData.initialVideo.thumbnail },
-        ]
-      : [{ title: "Watch — IBONA" }],
-  }),
+  head: ({ loaderData, params }) => {
+    const v = loaderData?.initialVideo;
+    const url = `https://rebalive.egreedtech.org/watch/${params.videoId}`;
+    if (!v) {
+      return { meta: [{ title: "Watch — IBONA" }], links: [{ rel: "canonical", href: url }] };
+    }
+    const kwList = [v.title, v.creator, v.category, v.language, "agasobanuye", "film nyarwanda", "amakuru", "IBONA", "Rebalive"]
+      .filter(Boolean).join(", ");
+    return {
+      meta: [
+        { title: `${v.title} — IBONA` },
+        { name: "description", content: (v.description || `Watch ${v.title} by ${v.creator} on IBONA — agasobanuye, film nyarwanda and African content.`).slice(0, 160) },
+        { name: "keywords", content: kwList },
+        { property: "og:type", content: "video.other" },
+        { property: "og:url", content: url },
+        { property: "og:title", content: v.title },
+        { property: "og:description", content: (v.description || "").slice(0, 160) },
+        { property: "og:image", content: v.thumbnail },
+        { property: "og:video", content: v.previewSrc ?? "" },
+        { name: "twitter:card", content: "player" },
+        { name: "twitter:title", content: v.title },
+        { name: "twitter:image", content: v.thumbnail },
+      ],
+      links: [{ rel: "canonical", href: url }],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "VideoObject",
+            name: v.title,
+            description: v.description || v.title,
+            thumbnailUrl: [v.thumbnail],
+            uploadDate: new Date().toISOString(),
+            contentUrl: v.previewSrc,
+            embedUrl: url,
+            inLanguage: v.language,
+            keywords: kwList,
+            publisher: { "@type": "Organization", name: "IBONA", url: "https://rebalive.egreedtech.org" },
+            author: { "@type": "Person", name: v.creator },
+          }),
+        },
+      ],
+    };
+  },
   errorComponent: ({ error }) => (
     <AppLayout>
       <div className="py-20 text-center text-muted-foreground">{error.message}</div>

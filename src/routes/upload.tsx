@@ -430,16 +430,16 @@ function UploadPage() {
 
       updateItem(item.id, { status: "done", progress: 100, controller: null, videoId: row.id });
 
-      // 4) Kick off AI pipeline (captions + metadata). Fire-and-forget.
+      // 4) Kick off AI pipeline (captions + metadata + thumbnails + embedding). Fire-and-forget.
       try {
-        const [{ markPipelinePending, transcribeVideo, generateVideoMetadata }] = await Promise.all([
-          import("@/lib/ai.functions"),
-        ]);
+        const { markPipelinePending, transcribeVideo, generateVideoMetadata, generateThumbnails } = await import("@/lib/ai.functions");
         await markPipelinePending({ data: { videoId: row.id } });
-        // Sequential: captions provide transcript that feeds metadata gen
-        transcribeVideo({ data: { videoId: row.id } }).then(() =>
-          generateVideoMetadata({ data: { videoId: row.id } }),
-        ).catch(() => { /* surfaced via ai_jobs in Studio */ });
+        // Captions feed metadata; metadata triggers an embedding refresh itself.
+        transcribeVideo({ data: { videoId: row.id } })
+          .then(() => generateVideoMetadata({ data: { videoId: row.id } }))
+          .catch(() => { /* surfaced via ai_jobs */ });
+        // Thumbnails can run in parallel — they don't need the transcript.
+        generateThumbnails({ data: { videoId: row.id } }).catch(() => {});
       } catch { /* AI is best-effort */ }
     } catch (err) {
       if (ac.signal.aborted) {

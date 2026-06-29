@@ -1,11 +1,12 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Upload as UploadIcon, Eye, Heart, Trash2, Edit3, Loader2, Film, X, Check, BarChart3, Users, MessageCircle, Sparkles, RefreshCw, Copy, Languages, FileText } from "lucide-react";
+import { useRef } from "react";
+import { Upload as UploadIcon, Eye, Heart, Trash2, Edit3, Loader2, Film, X, Check, BarChart3, Users, MessageCircle, Sparkles, RefreshCw, Copy, Languages, FileText, Image as ImageIcon, Star } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { transcribeVideo, generateVideoMetadata, getAiStatus } from "@/lib/ai.functions";
+import { transcribeVideo, generateVideoMetadata, generateThumbnails, selectThumbnail, getAiStatus } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/studio")({
   ssr: false,
@@ -170,7 +171,7 @@ function StudioPage() {
       </div>
 
       {editing && <EditModal row={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} />}
-      {aiVideoId && <AiAssistantModal videoId={aiVideoId} onClose={() => setAiVideoId(null)} onApply={() => refresh()} />}
+      {aiVideoId && user && <AiAssistantModal videoId={aiVideoId} ownerId={user.id} onClose={() => setAiVideoId(null)} onApply={() => refresh()} />}
     </AppLayout>
   );
 }
@@ -257,13 +258,16 @@ interface AiMeta {
   detected_language: string | null;
 }
 interface AiCap { language: string; vtt_url: string; is_default: boolean }
+interface AiThumb { id: string; url: string; source: 'frame' | 'ai' | 'custom'; selected: boolean; created_at: string }
 
-function AiAssistantModal({ videoId, onClose, onApply }: { videoId: string; onClose: () => void; onApply: () => void }) {
+function AiAssistantModal({ videoId, ownerId, onClose, onApply }: { videoId: string; ownerId: string; onClose: () => void; onApply: () => void }) {
   const [jobs, setJobs] = useState<AiJob[]>([]);
   const [meta, setMeta] = useState<AiMeta | null>(null);
   const [captions, setCaptions] = useState<AiCap[]>([]);
+  const [thumbs, setThumbs] = useState<AiThumb[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<"captions" | "metadata" | null>(null);
+  const [busy, setBusy] = useState<"captions" | "metadata" | "thumbnails" | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const load = async () => {
     try {
@@ -271,6 +275,7 @@ function AiAssistantModal({ videoId, onClose, onApply }: { videoId: string; onCl
       setJobs(r.jobs as AiJob[]);
       setMeta((r.metadata as AiMeta | null) ?? null);
       setCaptions((r.captions as AiCap[]) ?? []);
+      setThumbs(((r as unknown as { thumbnails?: AiThumb[] }).thumbnails) ?? []);
     } finally { setLoading(false); }
   };
   useEffect(() => {
@@ -298,6 +303,45 @@ function AiAssistantModal({ videoId, onClose, onApply }: { videoId: string; onCl
     } catch (e) { toast.error("Metadata generation failed", { description: (e as Error).message }); }
     setBusy(null); load();
   };
+  const runThumbs = async () => {
+    setBusy("thumbnails");
+    try {
+      const r = await generateThumbnails({ data: { videoId } });
+      if ((r as { ok: boolean }).ok) toast.success("Thumbnails generated");
+      else toast.error("Thumbnail generation failed", { description: (r as { error?: string }).error });
+    } catch (e) { toast.error("Thumbnail generation failed", { description: (e as Error).message }); }
+    setBusy(null); load();
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("ibona:video-updated"));
+  };
+  const pickThumb = async (url: string) => {
+    try {
+      await selectThumbnail({ data: { videoId, url } });
+      toast.success("Thumbnail set");
+      load();
+      onApply();
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("ibona:video-updated"));
+    } catch (e) { toast.error("Could not set thumbnail", { description: (e as Error).message }); }
+  };
+  const uploadCustom = async (file: File) => {
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${ownerId}/${videoId}/custom-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("thumbnails").upload(path, file, {
+        contentType: file.type || `image/${ext}`,
+        upsert: true,
+      });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("thumbnails").getPublicUrl(path);
+      await supabase.from("thumbnail_candidates").update({ selected: false }).eq("video_id", videoId);
+      await supabase.from("thumbnail_candidates").insert({
+        video_id: videoId, owner_id: ownerId, url: pub.publicUrl, source: "custom", position: 99, selected: true,
+      });
+      await supabase.from("videos").update({ thumbnail_url: pub.publicUrl }).eq("id", videoId);
+      toast.success("Custom thumbnail uploaded");
+      load(); onApply();
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("ibona:video-updated"));
+    } catch (e) { toast.error("Upload failed", { description: (e as Error).message }); }
+  };
 
   const applyMetadata = async () => {
     if (!meta?.seo_title) return;
@@ -323,7 +367,39 @@ function AiAssistantModal({ videoId, onClose, onApply }: { videoId: string; onCl
 
         {loading ? <div className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></div> : (
           <div className="space-y-5">
-            {/* Captions */}
+            {/* Thumbnails */}
+            <section className="rounded-2xl border border-border p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 font-bold"><ImageIcon className="h-4 w-4 text-primary" /> Thumbnails</div>
+                <div className="flex gap-2">
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCustom(f); e.target.value = ""; }} />
+                  <button onClick={() => fileRef.current?.click()} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold border border-border bg-background hover:bg-surface-elevated disabled:opacity-50">
+                    <UploadIcon className="h-3.5 w-3.5" /> Upload custom
+                  </button>
+                  <button onClick={runThumbs} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-50">
+                    {busy === "thumbnails" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} {thumbs.length ? "Regenerate 3" : "Generate 3"}
+                  </button>
+                </div>
+              </div>
+              <JobBadge job={jobStatus("thumbnails")} />
+              {thumbs.length > 0 ? (
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {thumbs.map((t) => (
+                    <button key={t.id} onClick={() => pickThumb(t.url)} className={`relative aspect-video overflow-hidden rounded-xl border-2 transition ${t.selected ? "border-primary shadow-[var(--shadow-glow)]" : "border-border hover:border-primary/60"}`}>
+                      <img src={t.url} alt="" className="w-full h-full object-cover" />
+                      {t.selected && (
+                        <div className="absolute top-1 right-1 rounded-full bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold flex items-center gap-0.5">
+                          <Star className="h-2.5 w-2.5" /> SELECTED
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 bg-background/80 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5">{t.source}</div>
+                    </button>
+                  ))}
+                </div>
+              ) : <p className="text-xs text-muted-foreground mt-1">No thumbnails yet. Generate 3 AI thumbnails or upload your own.</p>}
+            </section>
+
+
             <section className="rounded-2xl border border-border p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2 font-bold"><Languages className="h-4 w-4 text-primary" /> Captions</div>

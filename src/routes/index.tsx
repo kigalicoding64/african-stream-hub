@@ -8,9 +8,10 @@ import { VideoCard } from "@/components/VideoCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { ContinueWatchingRail } from "@/components/ContinueWatchingRail";
 import { isPopularAfrica, type Video } from "@/data/videos";
-import { fetchPrioritizedFeed, fetchContinueWatching, type ContinueWatchingItem } from "@/lib/videos-api";
+import { fetchPrioritizedFeed, fetchContinueWatching, fetchVideoById, type ContinueWatchingItem } from "@/lib/videos-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { forYouFeed } from "@/lib/recommend.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,6 +30,7 @@ function Index() {
   const [category, setCategory] = useState("All");
   const [feed, setFeed] = useState<Video[]>([]);
   const [continueItems, setContinueItems] = useState<ContinueWatchingItem[]>([]);
+  const [forYou, setForYou] = useState<Video[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,9 +54,17 @@ function Index() {
   }, [user?.id]);
 
   useEffect(() => {
-    if (!user?.id) { setContinueItems([]); return; }
+    if (!user?.id) { setContinueItems([]); setForYou([]); return; }
     let cancelled = false;
     fetchContinueWatching(user.id).then((items) => { if (!cancelled) setContinueItems(items); });
+    // AI "For You" — recommendations driven by watch history, language, country, category
+    forYouFeed({ data: { limit: 18 } })
+      .then(async (r: { ok?: boolean; ids?: string[] }) => {
+        if (cancelled || !r?.ok || !r.ids?.length) return;
+        const items = (await Promise.all(r.ids.map((id) => fetchVideoById(id)))).filter(Boolean) as Video[];
+        if (!cancelled) setForYou(items);
+      })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [user?.id]);
 
@@ -76,6 +86,8 @@ function Index() {
 
         {continueItems.length > 0 && <ContinueWatchingRail items={continueItems} />}
 
+        {forYou.length > 0 && <VideoRail title="For you" emoji="✨" videos={forYou} />}
+
         <VideoRail title="Trending in Rwanda" emoji="🔥" videos={trending} />
 
         <section>
@@ -86,7 +98,7 @@ function Index() {
         </section>
 
         <section>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-4 px-1">For you</h2>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-4 px-1">{category === "All" ? "Latest on IBONA" : category}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {filtered.map((v) => (
               <VideoCard key={v.id} video={v} />

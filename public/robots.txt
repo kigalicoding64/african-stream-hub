@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# IBONA (formerly Rebalive) — African-first video platform
+Sitemap: https://rebalive.egreedtech.org/sitemap.xml

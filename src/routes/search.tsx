@@ -5,7 +5,9 @@ import { z } from "zod";
 import { Loader2, Search as SearchIcon, Sparkles, EyeOff } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { VideoCard } from "@/components/VideoCard";
-import { searchAll, type CreatorProfile } from "@/lib/videos-api";
+import { searchAll, dbToVideo, type CreatorProfile, type DbVideo } from "@/lib/videos-api";
+import { supabase } from "@/integrations/supabase/client";
+import { semanticSearch } from "@/lib/search.functions";
 import { isPopularAfrica, type Video } from "@/data/videos";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -36,14 +38,31 @@ function SearchPage() {
   useEffect(() => {
     if (!q.trim()) { setVideos([]); setCreators([]); return; }
     let cancelled = false;
-    const run = () => {
+    const run = async () => {
       setLoading(true);
-      searchAll(q, { includeDrafts, viewerId: user?.id ?? null }).then((r) => {
-        if (cancelled) return;
-        setVideos(r.videos);
-        setCreators(r.creators);
-        setLoading(false);
-      });
+      const [textRes, semRes] = await Promise.all([
+        searchAll(q, { includeDrafts, viewerId: user?.id ?? null }),
+        semanticSearch({ data: { q } }).catch(() => ({ ok: false, ids: [] as string[] })),
+      ]);
+      if (cancelled) return;
+      // Merge: semantic ids first (ranked), then ilike text matches not already present.
+      let semVideos: Video[] = [];
+      const semIds = (semRes.ok ? semRes.ids : []).filter(Boolean);
+      if (semIds.length) {
+        const { data } = await supabase
+          .from("videos")
+          .select("*, profiles!videos_owner_profile_fk(display_name, username, avatar_url)")
+          .in("id", semIds)
+          .eq("visibility", "public")
+          .eq("status", "ready");
+        const byId = new Map<string, DbVideo>(((data as unknown as DbVideo[]) ?? []).map((v) => [v.id, v]));
+        semVideos = semIds.map((id) => byId.get(id)).filter(Boolean).map((v) => dbToVideo(v!));
+      }
+      const seen = new Set(semVideos.map((v) => v.id));
+      const merged = [...semVideos, ...textRes.videos.filter((v) => !seen.has(v.id))];
+      setVideos(merged);
+      setCreators(textRes.creators);
+      setLoading(false);
     };
     run();
     const onUpdate = () => run();
