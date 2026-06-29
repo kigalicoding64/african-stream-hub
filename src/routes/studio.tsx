@@ -1,11 +1,12 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Upload as UploadIcon, Eye, Heart, Trash2, Edit3, Loader2, Film, X, Check, BarChart3, Users, MessageCircle, Sparkles, RefreshCw, Copy, Languages, FileText } from "lucide-react";
+import { useRef } from "react";
+import { Upload as UploadIcon, Eye, Heart, Trash2, Edit3, Loader2, Film, X, Check, BarChart3, Users, MessageCircle, Sparkles, RefreshCw, Copy, Languages, FileText, Image as ImageIcon, Star } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { transcribeVideo, generateVideoMetadata, getAiStatus } from "@/lib/ai.functions";
+import { transcribeVideo, generateVideoMetadata, generateThumbnails, selectThumbnail, getAiStatus } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/studio")({
   ssr: false,
@@ -257,13 +258,16 @@ interface AiMeta {
   detected_language: string | null;
 }
 interface AiCap { language: string; vtt_url: string; is_default: boolean }
+interface AiThumb { id: string; url: string; source: 'frame' | 'ai' | 'custom'; selected: boolean; created_at: string }
 
-function AiAssistantModal({ videoId, onClose, onApply }: { videoId: string; onClose: () => void; onApply: () => void }) {
+function AiAssistantModal({ videoId, ownerId, onClose, onApply }: { videoId: string; ownerId: string; onClose: () => void; onApply: () => void }) {
   const [jobs, setJobs] = useState<AiJob[]>([]);
   const [meta, setMeta] = useState<AiMeta | null>(null);
   const [captions, setCaptions] = useState<AiCap[]>([]);
+  const [thumbs, setThumbs] = useState<AiThumb[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<"captions" | "metadata" | null>(null);
+  const [busy, setBusy] = useState<"captions" | "metadata" | "thumbnails" | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const load = async () => {
     try {
@@ -271,6 +275,7 @@ function AiAssistantModal({ videoId, onClose, onApply }: { videoId: string; onCl
       setJobs(r.jobs as AiJob[]);
       setMeta((r.metadata as AiMeta | null) ?? null);
       setCaptions((r.captions as AiCap[]) ?? []);
+      setThumbs(((r as unknown as { thumbnails?: AiThumb[] }).thumbnails) ?? []);
     } finally { setLoading(false); }
   };
   useEffect(() => {
@@ -297,6 +302,45 @@ function AiAssistantModal({ videoId, onClose, onApply }: { videoId: string; onCl
       else toast.error("Metadata generation failed", { description: (r as { error?: string }).error });
     } catch (e) { toast.error("Metadata generation failed", { description: (e as Error).message }); }
     setBusy(null); load();
+  };
+  const runThumbs = async () => {
+    setBusy("thumbnails");
+    try {
+      const r = await generateThumbnails({ data: { videoId } });
+      if ((r as { ok: boolean }).ok) toast.success("Thumbnails generated");
+      else toast.error("Thumbnail generation failed", { description: (r as { error?: string }).error });
+    } catch (e) { toast.error("Thumbnail generation failed", { description: (e as Error).message }); }
+    setBusy(null); load();
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("ibona:video-updated"));
+  };
+  const pickThumb = async (url: string) => {
+    try {
+      await selectThumbnail({ data: { videoId, url } });
+      toast.success("Thumbnail set");
+      load();
+      onApply();
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("ibona:video-updated"));
+    } catch (e) { toast.error("Could not set thumbnail", { description: (e as Error).message }); }
+  };
+  const uploadCustom = async (file: File) => {
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${ownerId}/${videoId}/custom-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("thumbnails").upload(path, file, {
+        contentType: file.type || `image/${ext}`,
+        upsert: true,
+      });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("thumbnails").getPublicUrl(path);
+      await supabase.from("thumbnail_candidates").update({ selected: false }).eq("video_id", videoId);
+      await supabase.from("thumbnail_candidates").insert({
+        video_id: videoId, owner_id: ownerId, url: pub.publicUrl, source: "custom", position: 99, selected: true,
+      });
+      await supabase.from("videos").update({ thumbnail_url: pub.publicUrl }).eq("id", videoId);
+      toast.success("Custom thumbnail uploaded");
+      load(); onApply();
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("ibona:video-updated"));
+    } catch (e) { toast.error("Upload failed", { description: (e as Error).message }); }
   };
 
   const applyMetadata = async () => {
