@@ -8,9 +8,10 @@ import { VideoCard } from "@/components/VideoCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { ContinueWatchingRail } from "@/components/ContinueWatchingRail";
 import { isPopularAfrica, type Video } from "@/data/videos";
-import { fetchPrioritizedFeed, fetchContinueWatching, type ContinueWatchingItem } from "@/lib/videos-api";
+import { fetchPrioritizedFeed, fetchContinueWatching, fetchVideoById, type ContinueWatchingItem } from "@/lib/videos-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { forYouFeed } from "@/lib/recommend.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,6 +30,7 @@ function Index() {
   const [category, setCategory] = useState("All");
   const [feed, setFeed] = useState<Video[]>([]);
   const [continueItems, setContinueItems] = useState<ContinueWatchingItem[]>([]);
+  const [forYou, setForYou] = useState<Video[]>([]);
 
   useEffect(() => {
     let cancelled = false;
