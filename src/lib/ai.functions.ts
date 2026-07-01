@@ -584,9 +584,9 @@ export const getAiStatus = createServerFn({ method: 'GET' })
       supabase.from('video_captions').select('language, vtt_url, is_default').eq('video_id', data.videoId),
       supabase
         .from('thumbnail_candidates')
-        .select('id, url, source, position, selected, created_at')
+        .select('id, url, source, position, selected, score, score_breakdown, reason, timestamp_seconds, created_at')
         .eq('video_id', data.videoId)
-        .order('created_at', { ascending: true }),
+        .order('score', { ascending: false }),
     ]);
     return { jobs: jobs ?? [], metadata: meta ?? null, captions: caps ?? [], thumbnails: thumbs ?? [] };
   });
