@@ -360,14 +360,26 @@ function AiAssistantModal({ videoId, ownerId, videoUrl, mediaType, currentThumb,
     } catch (e) { toast.error("Metadata generation failed", { description: (e as Error).message }); }
     setBusy(null); load();
   };
+  const [extractProgress, setExtractProgress] = useState<{ done: number; total: number } | null>(null);
   const runThumbs = async () => {
+    if (mediaType !== "video") { toast.error("AI thumbnails only work for video uploads."); return; }
     setBusy("thumbnails");
+    setExtractProgress({ done: 0, total: 1 });
     try {
-      const r = await generateThumbnails({ data: { videoId } });
-      if ((r as { ok: boolean }).ok) toast.success("Thumbnails generated");
-      else toast.error("Thumbnail generation failed", { description: (r as { error?: string }).error });
+      const { extractCandidateFrames, uploadFramesForRanking } = await import("@/lib/thumbnail-extractor");
+      toast.info("Analyzing video for candidate frames…");
+      const frames = await extractCandidateFrames(videoUrl, {
+        samples: 16, top: 6,
+        onProgress: (done, total) => setExtractProgress({ done, total }),
+      });
+      if (frames.length === 0) throw new Error("Could not read any frames from the video.");
+      const uploaded = await uploadFramesForRanking({ supabase, ownerId, videoId, frames });
+      if (uploaded.length === 0) throw new Error("Frame upload failed.");
+      const r = await generateThumbnails({ data: { videoId, frames: uploaded } });
+      if ((r as { ok: boolean }).ok) toast.success("AI ranked and selected the best thumbnail");
+      else toast.error("Ranking failed", { description: (r as { error?: string }).error });
     } catch (e) { toast.error("Thumbnail generation failed", { description: (e as Error).message }); }
-    setBusy(null); load();
+    setBusy(null); setExtractProgress(null); load();
     if (typeof window !== "undefined") window.dispatchEvent(new Event("ibona:video-updated"));
   };
   const pickThumb = async (url: string) => {
