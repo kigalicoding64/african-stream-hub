@@ -445,27 +445,60 @@ function AiAssistantModal({ videoId, ownerId, videoUrl, mediaType, currentThumb,
                   <button onClick={() => fileRef.current?.click()} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold border border-border bg-background hover:bg-surface-elevated disabled:opacity-50">
                     <UploadIcon className="h-3.5 w-3.5" /> Upload custom
                   </button>
-                  <button onClick={runThumbs} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-50">
-                    {busy === "thumbnails" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} {thumbs.length ? "Regenerate 3" : "Generate 3"}
+                  <button onClick={runThumbs} disabled={busy !== null || mediaType !== "video"} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-50">
+                    {busy === "thumbnails" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} {thumbs.length ? "Regenerate AI thumbnails" : "Generate AI thumbnail"}
                   </button>
                 </div>
               </div>
               <JobBadge job={jobStatus("thumbnails")} />
-              {thumbs.length > 0 ? (
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {thumbs.map((t) => (
-                    <button key={t.id} onClick={() => pickThumb(t.url)} className={`relative aspect-video overflow-hidden rounded-xl border-2 transition ${t.selected ? "border-primary shadow-[var(--shadow-glow)]" : "border-border hover:border-primary/60"}`}>
-                      <img src={t.url} alt="" className="w-full h-full object-cover" />
-                      {t.selected && (
-                        <div className="absolute top-1 right-1 rounded-full bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold flex items-center gap-0.5">
-                          <Star className="h-2.5 w-2.5" /> SELECTED
-                        </div>
-                      )}
-                      <div className="absolute bottom-0 left-0 right-0 bg-background/80 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5">{t.source}</div>
-                    </button>
-                  ))}
+              {busy === "thumbnails" && extractProgress && (
+                <div className="mt-2 text-xs text-muted-foreground">Sampling frames {extractProgress.done}/{extractProgress.total}…</div>
+              )}
+              {mediaType !== "video" && (
+                <p className="text-xs text-muted-foreground mt-1">AI thumbnails are generated from video frames. Audio tracks only support custom uploads.</p>
+              )}
+
+              {/* Original vs AI comparison */}
+              {(currentThumb || aiThumb) && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-border overflow-hidden">
+                    <div className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-surface-elevated">Current</div>
+                    <div className="aspect-video bg-surface-elevated flex items-center justify-center">
+                      {currentThumb ? <img src={currentThumb} alt="Current thumbnail" className="w-full h-full object-cover" /> : <span className="text-xs text-muted-foreground">None</span>}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-primary/40 overflow-hidden">
+                    <div className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-primary/15 text-primary flex items-center gap-1"><Sparkles className="h-3 w-3" /> AI pick</div>
+                    <div className="aspect-video bg-surface-elevated flex items-center justify-center">
+                      {aiThumb ? <img src={aiThumb} alt="AI best thumbnail" className="w-full h-full object-cover" /> : <span className="text-xs text-muted-foreground">Not generated yet</span>}
+                    </div>
+                  </div>
                 </div>
-              ) : <p className="text-xs text-muted-foreground mt-1">No thumbnails yet. Generate 3 AI thumbnails or upload your own.</p>}
+              )}
+
+              {thumbs.length > 0 ? (
+                <>
+                  <div className="mt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">All candidates — click to select</div>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {thumbs.map((t) => (
+                      <button key={t.id} onClick={() => pickThumb(t.url)} className={`relative aspect-video overflow-hidden rounded-xl border-2 transition ${t.selected ? "border-primary shadow-[var(--shadow-glow)]" : "border-border hover:border-primary/60"}`} title={t.reason || undefined}>
+                        <img src={t.url} alt="" className="w-full h-full object-cover" />
+                        {t.selected && (
+                          <div className="absolute top-1 right-1 rounded-full bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold flex items-center gap-0.5">
+                            <Star className="h-2.5 w-2.5" /> SELECTED
+                          </div>
+                        )}
+                        {typeof t.score === "number" && t.source !== "custom" && (
+                          <div className="absolute top-1 left-1 rounded-full bg-background/80 text-foreground px-1.5 py-0.5 text-[9px] font-bold">
+                            {(t.score * 100).toFixed(0)}
+                          </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 bg-background/80 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 truncate">{t.source}{t.reason ? ` · ${t.reason}` : ""}</div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : <p className="text-xs text-muted-foreground mt-2">No AI thumbnails yet. Click "Generate AI thumbnail" — we'll sample frames from the video, score them for faces, sharpness, emotion, and composition, then pick the best.</p>}
             </section>
 
 
