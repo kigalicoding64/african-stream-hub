@@ -147,9 +147,20 @@ function StudioPage() {
         </div>
 
         <div className="rounded-3xl border border-border bg-surface overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
             <div className="font-bold flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /> Your videos</div>
-            <div className="text-xs text-muted-foreground">{rows.length} total</div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={backfillThumbnails}
+                disabled={!!backfilling}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-50"
+                title="Generate AI thumbnails for every video that doesn't have one"
+              >
+                {backfilling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {backfilling ? `Generating ${backfilling.done}/${backfilling.total}` : "Generate AI thumbnails for all"}
+              </button>
+              <div className="text-xs text-muted-foreground">{rows.length} total</div>
+            </div>
           </div>
 
           {loading ? (
