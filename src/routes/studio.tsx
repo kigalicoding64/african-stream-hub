@@ -96,6 +96,34 @@ function StudioPage() {
   const totalViews = rows.reduce((a, r) => a + (r.views || 0), 0);
   const totalLikes = rows.reduce((a, r) => a + (r.likes || 0), 0);
 
+  const [backfilling, setBackfilling] = useState<{ done: number; total: number } | null>(null);
+  const backfillThumbnails = async () => {
+    if (!user) return;
+    const targets = rows.filter((r) => r.media_type === "video" && r.thumbnail_generation_status !== "done");
+    if (targets.length === 0) { toast.info("All videos already have AI thumbnails."); return; }
+    if (!confirm(`Generate AI thumbnails for ${targets.length} video(s)? This will run in your browser and may take a few minutes.`)) return;
+    setBackfilling({ done: 0, total: targets.length });
+    const { extractCandidateFrames, uploadFramesForRanking } = await import("@/lib/thumbnail-extractor");
+    const { generateThumbnails } = await import("@/lib/ai.functions");
+    let ok = 0, fail = 0;
+    for (let i = 0; i < targets.length; i++) {
+      const v = targets[i];
+      try {
+        const frames = await extractCandidateFrames(v.video_url, { samples: 14, top: 6 });
+        if (frames.length === 0) throw new Error("No frames");
+        const uploaded = await uploadFramesForRanking({ supabase, ownerId: user.id, videoId: v.id, frames });
+        if (uploaded.length === 0) throw new Error("Upload failed");
+        await generateThumbnails({ data: { videoId: v.id, frames: uploaded } });
+        ok++;
+      } catch { fail++; }
+      setBackfilling({ done: i + 1, total: targets.length });
+    }
+    setBackfilling(null);
+    toast.success(`AI thumbnails: ${ok} done, ${fail} failed`);
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("ibona:video-updated"));
+    refresh();
+  };
+
   return (
     <AppLayout>
       <div className="animate-fade-in">
