@@ -32,6 +32,10 @@ interface Row {
   visibility: "public" | "unlisted" | "private";
   status: string;
   thumbnail_url: string | null;
+  ai_thumbnail_url: string | null;
+  thumbnail_generation_status: string;
+  video_url: string;
+  media_type: "video" | "audio";
   views: number;
   likes: number;
   duration_seconds: number | null;
@@ -52,7 +56,7 @@ function StudioPage() {
     setLoading(true);
     const { data } = await supabase
       .from("videos")
-      .select("id, title, description, language, category, visibility, status, thumbnail_url, views, likes, duration_seconds, created_at")
+      .select("id, title, description, language, category, visibility, status, thumbnail_url, ai_thumbnail_url, thumbnail_generation_status, video_url, media_type, views, likes, duration_seconds, created_at")
       .eq("owner_id", user.id)
       .order("created_at", { ascending: false });
     setRows((data as Row[]) || []);
@@ -92,6 +96,34 @@ function StudioPage() {
   const totalViews = rows.reduce((a, r) => a + (r.views || 0), 0);
   const totalLikes = rows.reduce((a, r) => a + (r.likes || 0), 0);
 
+  const [backfilling, setBackfilling] = useState<{ done: number; total: number } | null>(null);
+  const backfillThumbnails = async () => {
+    if (!user) return;
+    const targets = rows.filter((r) => r.media_type === "video" && r.thumbnail_generation_status !== "done");
+    if (targets.length === 0) { toast.info("All videos already have AI thumbnails."); return; }
+    if (!confirm(`Generate AI thumbnails for ${targets.length} video(s)? This will run in your browser and may take a few minutes.`)) return;
+    setBackfilling({ done: 0, total: targets.length });
+    const { extractCandidateFrames, uploadFramesForRanking } = await import("@/lib/thumbnail-extractor");
+    const { generateThumbnails } = await import("@/lib/ai.functions");
+    let ok = 0, fail = 0;
+    for (let i = 0; i < targets.length; i++) {
+      const v = targets[i];
+      try {
+        const frames = await extractCandidateFrames(v.video_url, { samples: 14, top: 6 });
+        if (frames.length === 0) throw new Error("No frames");
+        const uploaded = await uploadFramesForRanking({ supabase, ownerId: user.id, videoId: v.id, frames });
+        if (uploaded.length === 0) throw new Error("Upload failed");
+        await generateThumbnails({ data: { videoId: v.id, frames: uploaded } });
+        ok++;
+      } catch { fail++; }
+      setBackfilling({ done: i + 1, total: targets.length });
+    }
+    setBackfilling(null);
+    toast.success(`AI thumbnails: ${ok} done, ${fail} failed`);
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("ibona:video-updated"));
+    refresh();
+  };
+
   return (
     <AppLayout>
       <div className="animate-fade-in">
@@ -115,9 +147,20 @@ function StudioPage() {
         </div>
 
         <div className="rounded-3xl border border-border bg-surface overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
             <div className="font-bold flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /> Your videos</div>
-            <div className="text-xs text-muted-foreground">{rows.length} total</div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={backfillThumbnails}
+                disabled={!!backfilling}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-50"
+                title="Generate AI thumbnails for every video that doesn't have one"
+              >
+                {backfilling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {backfilling ? `Generating ${backfilling.done}/${backfilling.total}` : "Generate AI thumbnails for all"}
+              </button>
+              <div className="text-xs text-muted-foreground">{rows.length} total</div>
+            </div>
           </div>
 
           {loading ? (
@@ -171,7 +214,21 @@ function StudioPage() {
       </div>
 
       {editing && <EditModal row={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} />}
-      {aiVideoId && user && <AiAssistantModal videoId={aiVideoId} ownerId={user.id} onClose={() => setAiVideoId(null)} onApply={() => refresh()} />}
+      {aiVideoId && user && (() => {
+        const row = rows.find((r) => r.id === aiVideoId);
+        return row ? (
+          <AiAssistantModal
+            videoId={aiVideoId}
+            ownerId={user.id}
+            videoUrl={row.video_url}
+            mediaType={row.media_type}
+            currentThumb={row.thumbnail_url}
+            aiThumb={row.ai_thumbnail_url}
+            onClose={() => setAiVideoId(null)}
+            onApply={() => refresh()}
+          />
+        ) : null;
+      })()}
     </AppLayout>
   );
 }
@@ -258,9 +315,9 @@ interface AiMeta {
   detected_language: string | null;
 }
 interface AiCap { language: string; vtt_url: string; is_default: boolean }
-interface AiThumb { id: string; url: string; source: 'frame' | 'ai' | 'custom'; selected: boolean; created_at: string }
+interface AiThumb { id: string; url: string; source: 'frame' | 'ai' | 'custom'; selected: boolean; score?: number; reason?: string | null; timestamp_seconds?: number | null; created_at: string }
 
-function AiAssistantModal({ videoId, ownerId, onClose, onApply }: { videoId: string; ownerId: string; onClose: () => void; onApply: () => void }) {
+function AiAssistantModal({ videoId, ownerId, videoUrl, mediaType, currentThumb, aiThumb, onClose, onApply }: { videoId: string; ownerId: string; videoUrl: string; mediaType: "video" | "audio"; currentThumb: string | null; aiThumb: string | null; onClose: () => void; onApply: () => void }) {
   const [jobs, setJobs] = useState<AiJob[]>([]);
   const [meta, setMeta] = useState<AiMeta | null>(null);
   const [captions, setCaptions] = useState<AiCap[]>([]);
@@ -303,14 +360,26 @@ function AiAssistantModal({ videoId, ownerId, onClose, onApply }: { videoId: str
     } catch (e) { toast.error("Metadata generation failed", { description: (e as Error).message }); }
     setBusy(null); load();
   };
+  const [extractProgress, setExtractProgress] = useState<{ done: number; total: number } | null>(null);
   const runThumbs = async () => {
+    if (mediaType !== "video") { toast.error("AI thumbnails only work for video uploads."); return; }
     setBusy("thumbnails");
+    setExtractProgress({ done: 0, total: 1 });
     try {
-      const r = await generateThumbnails({ data: { videoId } });
-      if ((r as { ok: boolean }).ok) toast.success("Thumbnails generated");
-      else toast.error("Thumbnail generation failed", { description: (r as { error?: string }).error });
+      const { extractCandidateFrames, uploadFramesForRanking } = await import("@/lib/thumbnail-extractor");
+      toast.info("Analyzing video for candidate frames…");
+      const frames = await extractCandidateFrames(videoUrl, {
+        samples: 16, top: 6,
+        onProgress: (done, total) => setExtractProgress({ done, total }),
+      });
+      if (frames.length === 0) throw new Error("Could not read any frames from the video.");
+      const uploaded = await uploadFramesForRanking({ supabase, ownerId, videoId, frames });
+      if (uploaded.length === 0) throw new Error("Frame upload failed.");
+      const r = await generateThumbnails({ data: { videoId, frames: uploaded } });
+      if ((r as { ok: boolean }).ok) toast.success("AI ranked and selected the best thumbnail");
+      else toast.error("Ranking failed", { description: (r as { error?: string }).error });
     } catch (e) { toast.error("Thumbnail generation failed", { description: (e as Error).message }); }
-    setBusy(null); load();
+    setBusy(null); setExtractProgress(null); load();
     if (typeof window !== "undefined") window.dispatchEvent(new Event("ibona:video-updated"));
   };
   const pickThumb = async (url: string) => {
@@ -376,27 +445,60 @@ function AiAssistantModal({ videoId, ownerId, onClose, onApply }: { videoId: str
                   <button onClick={() => fileRef.current?.click()} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold border border-border bg-background hover:bg-surface-elevated disabled:opacity-50">
                     <UploadIcon className="h-3.5 w-3.5" /> Upload custom
                   </button>
-                  <button onClick={runThumbs} disabled={busy !== null} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-50">
-                    {busy === "thumbnails" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} {thumbs.length ? "Regenerate 3" : "Generate 3"}
+                  <button onClick={runThumbs} disabled={busy !== null || mediaType !== "video"} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-50">
+                    {busy === "thumbnails" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} {thumbs.length ? "Regenerate AI thumbnails" : "Generate AI thumbnail"}
                   </button>
                 </div>
               </div>
               <JobBadge job={jobStatus("thumbnails")} />
-              {thumbs.length > 0 ? (
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {thumbs.map((t) => (
-                    <button key={t.id} onClick={() => pickThumb(t.url)} className={`relative aspect-video overflow-hidden rounded-xl border-2 transition ${t.selected ? "border-primary shadow-[var(--shadow-glow)]" : "border-border hover:border-primary/60"}`}>
-                      <img src={t.url} alt="" className="w-full h-full object-cover" />
-                      {t.selected && (
-                        <div className="absolute top-1 right-1 rounded-full bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold flex items-center gap-0.5">
-                          <Star className="h-2.5 w-2.5" /> SELECTED
-                        </div>
-                      )}
-                      <div className="absolute bottom-0 left-0 right-0 bg-background/80 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5">{t.source}</div>
-                    </button>
-                  ))}
+              {busy === "thumbnails" && extractProgress && (
+                <div className="mt-2 text-xs text-muted-foreground">Sampling frames {extractProgress.done}/{extractProgress.total}…</div>
+              )}
+              {mediaType !== "video" && (
+                <p className="text-xs text-muted-foreground mt-1">AI thumbnails are generated from video frames. Audio tracks only support custom uploads.</p>
+              )}
+
+              {/* Original vs AI comparison */}
+              {(currentThumb || aiThumb) && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-border overflow-hidden">
+                    <div className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-surface-elevated">Current</div>
+                    <div className="aspect-video bg-surface-elevated flex items-center justify-center">
+                      {currentThumb ? <img src={currentThumb} alt="Current thumbnail" className="w-full h-full object-cover" /> : <span className="text-xs text-muted-foreground">None</span>}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-primary/40 overflow-hidden">
+                    <div className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-primary/15 text-primary flex items-center gap-1"><Sparkles className="h-3 w-3" /> AI pick</div>
+                    <div className="aspect-video bg-surface-elevated flex items-center justify-center">
+                      {aiThumb ? <img src={aiThumb} alt="AI best thumbnail" className="w-full h-full object-cover" /> : <span className="text-xs text-muted-foreground">Not generated yet</span>}
+                    </div>
+                  </div>
                 </div>
-              ) : <p className="text-xs text-muted-foreground mt-1">No thumbnails yet. Generate 3 AI thumbnails or upload your own.</p>}
+              )}
+
+              {thumbs.length > 0 ? (
+                <>
+                  <div className="mt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">All candidates — click to select</div>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {thumbs.map((t) => (
+                      <button key={t.id} onClick={() => pickThumb(t.url)} className={`relative aspect-video overflow-hidden rounded-xl border-2 transition ${t.selected ? "border-primary shadow-[var(--shadow-glow)]" : "border-border hover:border-primary/60"}`} title={t.reason || undefined}>
+                        <img src={t.url} alt="" className="w-full h-full object-cover" />
+                        {t.selected && (
+                          <div className="absolute top-1 right-1 rounded-full bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold flex items-center gap-0.5">
+                            <Star className="h-2.5 w-2.5" /> SELECTED
+                          </div>
+                        )}
+                        {typeof t.score === "number" && t.source !== "custom" && (
+                          <div className="absolute top-1 left-1 rounded-full bg-background/80 text-foreground px-1.5 py-0.5 text-[9px] font-bold">
+                            {(t.score * 100).toFixed(0)}
+                          </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 bg-background/80 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 truncate">{t.source}{t.reason ? ` · ${t.reason}` : ""}</div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : <p className="text-xs text-muted-foreground mt-2">No AI thumbnails yet. Click "Generate AI thumbnail" — we'll sample frames from the video, score them for faces, sharpness, emotion, and composition, then pick the best.</p>}
             </section>
 
 

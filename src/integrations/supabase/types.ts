@@ -191,8 +191,12 @@ export type Database = {
           id: string
           owner_id: string
           position: number
+          reason: string | null
+          score: number
+          score_breakdown: Json
           selected: boolean
           source: string
+          timestamp_seconds: number | null
           url: string
           video_id: string
         }
@@ -201,8 +205,12 @@ export type Database = {
           id?: string
           owner_id: string
           position?: number
+          reason?: string | null
+          score?: number
+          score_breakdown?: Json
           selected?: boolean
           source: string
+          timestamp_seconds?: number | null
           url: string
           video_id: string
         }
@@ -211,8 +219,12 @@ export type Database = {
           id?: string
           owner_id?: string
           position?: number
+          reason?: string | null
+          score?: number
+          score_breakdown?: Json
           selected?: boolean
           source?: string
+          timestamp_seconds?: number | null
           url?: string
           video_id?: string
         }
@@ -475,6 +487,7 @@ export type Database = {
       }
       videos: {
         Row: {
+          ai_thumbnail_url: string | null
           category: Database["public"]["Enums"]["video_category"]
           country: string | null
           created_at: string
@@ -488,6 +501,9 @@ export type Database = {
           owner_id: string
           status: Database["public"]["Enums"]["video_status"]
           tags: string[] | null
+          thumbnail_generated_at: string | null
+          thumbnail_generation_status: string
+          thumbnail_options: Json
           thumbnail_url: string | null
           title: string
           updated_at: string
@@ -496,6 +512,7 @@ export type Database = {
           visibility: Database["public"]["Enums"]["video_visibility"]
         }
         Insert: {
+          ai_thumbnail_url?: string | null
           category?: Database["public"]["Enums"]["video_category"]
           country?: string | null
           created_at?: string
@@ -509,6 +526,9 @@ export type Database = {
           owner_id: string
           status?: Database["public"]["Enums"]["video_status"]
           tags?: string[] | null
+          thumbnail_generated_at?: string | null
+          thumbnail_generation_status?: string
+          thumbnail_options?: Json
           thumbnail_url?: string | null
           title: string
           updated_at?: string
@@ -517,6 +537,7 @@ export type Database = {
           visibility?: Database["public"]["Enums"]["video_visibility"]
         }
         Update: {
+          ai_thumbnail_url?: string | null
           category?: Database["public"]["Enums"]["video_category"]
           country?: string | null
           created_at?: string
@@ -530,6 +551,9 @@ export type Database = {
           owner_id?: string
           status?: Database["public"]["Enums"]["video_status"]
           tags?: string[] | null
+          thumbnail_generated_at?: string | null
+          thumbnail_generation_status?: string
+          thumbnail_options?: Json
           thumbnail_url?: string | null
           title?: string
           updated_at?: string

@@ -430,16 +430,32 @@ function UploadPage() {
 
       updateItem(item.id, { status: "done", progress: 100, controller: null, videoId: row.id });
 
-      // 4) Kick off AI pipeline (captions + metadata + thumbnails + embedding). Fire-and-forget.
+      // 4) Kick off AI pipeline. Captions/metadata are fire-and-forget.
+      //    For VIDEO uploads, extract candidate frames from the local File
+      //    (browser can decode it — the Cloudflare Worker cannot run ffmpeg),
+      //    upload them to storage, then hand off to the server-side ranker.
       try {
         const { markPipelinePending, transcribeVideo, generateVideoMetadata, generateThumbnails } = await import("@/lib/ai.functions");
         await markPipelinePending({ data: { videoId: row.id } });
-        // Captions feed metadata; metadata triggers an embedding refresh itself.
         transcribeVideo({ data: { videoId: row.id } })
           .then(() => generateVideoMetadata({ data: { videoId: row.id } }))
           .catch(() => { /* surfaced via ai_jobs */ });
-        // Thumbnails can run in parallel — they don't need the transcript.
-        generateThumbnails({ data: { videoId: row.id } }).catch(() => {});
+
+        if (item.mediaType === "video") {
+          (async () => {
+            try {
+              const { extractCandidateFrames, uploadFramesForRanking } = await import("@/lib/thumbnail-extractor");
+              const extracted = await extractCandidateFrames(item.file, { samples: 16, top: 6 });
+              if (extracted.length === 0) return;
+              const uploaded = await uploadFramesForRanking({
+                supabase, ownerId: user.id, videoId: row.id, frames: extracted,
+              });
+              if (uploaded.length === 0) return;
+              await generateThumbnails({ data: { videoId: row.id, frames: uploaded } });
+              if (typeof window !== "undefined") window.dispatchEvent(new Event("ibona:video-updated"));
+            } catch { /* thumbnail failures surface in ai_jobs */ }
+          })();
+        }
       } catch { /* AI is best-effort */ }
     } catch (err) {
       if (ac.signal.aborted) {
