@@ -315,9 +315,9 @@ interface AiMeta {
   detected_language: string | null;
 }
 interface AiCap { language: string; vtt_url: string; is_default: boolean }
-interface AiThumb { id: string; url: string; source: 'frame' | 'ai' | 'custom'; selected: boolean; created_at: string }
+interface AiThumb { id: string; url: string; source: 'frame' | 'ai' | 'custom'; selected: boolean; score?: number; reason?: string | null; timestamp_seconds?: number | null; created_at: string }
 
-function AiAssistantModal({ videoId, ownerId, onClose, onApply }: { videoId: string; ownerId: string; onClose: () => void; onApply: () => void }) {
+function AiAssistantModal({ videoId, ownerId, videoUrl, mediaType, currentThumb, aiThumb, onClose, onApply }: { videoId: string; ownerId: string; videoUrl: string; mediaType: "video" | "audio"; currentThumb: string | null; aiThumb: string | null; onClose: () => void; onApply: () => void }) {
   const [jobs, setJobs] = useState<AiJob[]>([]);
   const [meta, setMeta] = useState<AiMeta | null>(null);
   const [captions, setCaptions] = useState<AiCap[]>([]);
