@@ -46,6 +46,83 @@ export async function chatJSON<T = unknown>(opts: {
   return JSON.parse(content) as T;
 }
 
+/**
+ * Multimodal vision scoring: sends N image URLs to Gemini vision and asks it to
+ * score each frame across the criteria we care about for thumbnails.
+ * Returns per-index scores (0..1) + a short reason.
+ */
+export interface VisionThumbScore {
+  index: number;
+  faces: number;
+  smiles: number;
+  emotions: number;
+  motion: number;
+  sharpness: number;
+  brightness: number;
+  text_visibility: number;
+  subject_prominence: number;
+  overall: number;
+  reason: string;
+}
+
+export async function scoreThumbnailFrames(opts: {
+  imageUrls: string[];
+  videoTitle: string;
+  category?: string | null;
+}): Promise<VisionThumbScore[]> {
+  if (opts.imageUrls.length === 0) return [];
+  const system =
+    'You are a professional YouTube/social video thumbnail selector. Score each candidate frame for its potential as a click-worthy thumbnail. Return valid JSON only.';
+  const instructions = `Video title: "${opts.videoTitle}"${
+    opts.category ? ` (category: ${opts.category})` : ''
+  }.
+
+You will see ${opts.imageUrls.length} candidate frames extracted from the video, in order (index 0 first).
+For EACH frame, score these criteria on 0..1 (higher is better):
+- faces: are there clear human faces?
+- smiles: are subjects smiling / positive expression?
+- emotions: is there strong readable emotion / drama?
+- motion: does it capture dynamic action?
+- sharpness: is it in focus and not blurry?
+- brightness: is exposure balanced (not too dark, not blown out)?
+- text_visibility: is there visible legible on-screen text/graphics?
+- subject_prominence: is the subject large & centered enough to read at small sizes?
+- overall: composite thumbnail quality.
+
+Also give a very short "reason" (max 12 words) per frame.
+
+Return JSON exactly like:
+{"scores":[{"index":0,"faces":0.9,"smiles":0.7,"emotions":0.6,"motion":0.4,"sharpness":0.8,"brightness":0.7,"text_visibility":0.0,"subject_prominence":0.85,"overall":0.82,"reason":"Clear face, warm lighting, centered subject"}]}`;
+
+  const body = {
+    model: 'google/gemini-3-flash-preview',
+    messages: [
+      { role: 'system', content: system },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: instructions },
+          ...opts.imageUrls.map((url) => ({ type: 'image_url', image_url: { url } })),
+        ],
+      },
+    ],
+    response_format: { type: 'json_object' },
+  };
+  const res = await fetch(`${GATEWAY}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Lovable-API-Key': getLovableKey() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`AI Gateway vision score failed: ${res.status} ${text.slice(0, 300)}`);
+  }
+  const j = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const content = j.choices?.[0]?.message?.content ?? '{}';
+  const parsed = JSON.parse(content) as { scores?: VisionThumbScore[] };
+  return Array.isArray(parsed.scores) ? parsed.scores : [];
+}
+
 /** Small-file fallback transcription via gateway Whisper (sentence-level only). */
 export async function transcribeAudio(opts: {
   fileUrl: string;
