@@ -56,7 +56,7 @@ function StudioPage() {
     setLoading(true);
     const { data } = await supabase
       .from("videos")
-      .select("id, title, description, language, category, visibility, status, thumbnail_url, views, likes, duration_seconds, created_at")
+      .select("id, title, description, language, category, visibility, status, thumbnail_url, ai_thumbnail_url, thumbnail_generation_status, video_url, media_type, views, likes, duration_seconds, created_at")
       .eq("owner_id", user.id)
       .order("created_at", { ascending: false });
     setRows((data as Row[]) || []);
