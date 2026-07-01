@@ -214,7 +214,21 @@ function StudioPage() {
       </div>
 
       {editing && <EditModal row={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} />}
-      {aiVideoId && user && <AiAssistantModal videoId={aiVideoId} ownerId={user.id} onClose={() => setAiVideoId(null)} onApply={() => refresh()} />}
+      {aiVideoId && user && (() => {
+        const row = rows.find((r) => r.id === aiVideoId);
+        return row ? (
+          <AiAssistantModal
+            videoId={aiVideoId}
+            ownerId={user.id}
+            videoUrl={row.video_url}
+            mediaType={row.media_type}
+            currentThumb={row.thumbnail_url}
+            aiThumb={row.ai_thumbnail_url}
+            onClose={() => setAiVideoId(null)}
+            onApply={() => refresh()}
+          />
+        ) : null;
+      })()}
     </AppLayout>
   );
 }
