@@ -381,84 +381,149 @@ export const embedVideo = createServerFn({ method: 'POST' })
   });
 
 // =========================================================================
-// generateThumbnails — produce 3 AI cover thumbnails for the video
+// generateThumbnails — rank pre-extracted video frames with Gemini vision.
+// Frames must be extracted client-side (browser cannot run ffmpeg in the
+// Cloudflare Worker runtime) and uploaded to the `thumbnails` bucket first,
+// then their URLs + heuristic scores are passed here for AI ranking.
 // =========================================================================
+const FrameInput = z.object({
+  url: z.string().url(),
+  ts: z.number().nonnegative(),
+  heuristics: z
+    .object({
+      sharpness: z.number(),
+      brightness: z.number(),
+      colorfulness: z.number(),
+      edges: z.number(),
+      combined: z.number(),
+    })
+    .partial()
+    .optional(),
+});
+
 export const generateThumbnails = createServerFn({ method: 'POST' })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => VideoIdInput.parse(input))
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        videoId: z.string().uuid(),
+        frames: z.array(FrameInput).min(1).max(20),
+      })
+      .parse(input),
+  )
   .handler(async ({ data, context }) => {
     const supabase = getSupabaseFromContext(context);
     const userId = (context as { userId: string }).userId;
     const video = await ensureOwner(supabase, userId, data.videoId);
     await upsertJob(supabase, data.videoId, 'thumbnails', 'running');
-    try {
-      const { generateImage } = await import('./ai-gateway.server');
-      const tags = Array.isArray(video.tags) ? (video.tags as string[]).slice(0, 6).join(', ') : '';
-      const basePrompt = `Cinematic 16:9 thumbnail for an African video platform (IBONA) titled "${video.title}". Category: ${video.category}. Bold, high-contrast, vibrant colors. No watermark.${tags ? ` Themes: ${tags}.` : ''}`;
-      const variants = [
-        `${basePrompt} Style: bold dramatic poster, large readable text-free composition, golden hour lighting.`,
-        `${basePrompt} Style: clean modern editorial, soft gradient backdrop, minimal subject focus.`,
-        `${basePrompt} Style: energetic colorful collage, neon glow, dynamic motion.`,
-      ];
+    await supabase
+      .from('videos')
+      .update({ thumbnail_generation_status: 'running' })
+      .eq('id', data.videoId);
 
-      // Delete previous AI candidates so we don't pile up
+    try {
+      const { scoreThumbnailFrames } = await import('./ai-gateway.server');
+
+      // Ask Gemini vision to score each frame on the criteria.
+      let visionScores: Awaited<ReturnType<typeof scoreThumbnailFrames>> = [];
+      try {
+        visionScores = await scoreThumbnailFrames({
+          imageUrls: data.frames.map((f) => f.url),
+          videoTitle: video.title,
+          category: video.category,
+        });
+      } catch {
+        // If vision scoring fails we still keep heuristic ordering.
+      }
+
+      // Merge AI + client heuristics into a final composite score.
+      type Row = {
+        url: string;
+        ts: number;
+        heur: number;
+        ai: import('./ai-gateway.server').VisionThumbScore | undefined;
+        final: number;
+      };
+      const rows: Row[] = data.frames.map((f, i) => {
+        const heur = f.heuristics?.combined ?? 0.5;
+        const ai = visionScores.find((s) => s.index === i);
+        const aiOverall = ai?.overall ?? 0.5;
+        const final = 0.65 * aiOverall + 0.35 * heur;
+        return { url: f.url, ts: f.ts, heur, ai, final };
+      });
+      rows.sort((a, b) => b.final - a.final);
+
+      // Keep top 5, delete previous AI/frame candidates.
+      const keep = rows.slice(0, 5);
       await supabase
         .from('thumbnail_candidates')
         .delete()
         .eq('video_id', data.videoId)
-        .eq('source', 'ai');
+        .in('source', ['ai', 'frame']);
 
-      const urls: string[] = [];
-      for (let i = 0; i < variants.length; i++) {
-        try {
-          const { dataUrl } = await generateImage(variants[i]);
-          // dataUrl is e.g. "data:image/png;base64,..."
-          const m = /^data:(image\/[^;]+);base64,(.+)$/.exec(dataUrl);
-          if (!m) continue;
-          const mime = m[1];
-          const ext = mime.includes('jpeg') ? 'jpg' : 'png';
-          const bin = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
-          const blob = new Blob([bin], { type: mime });
-          const path = `${userId}/${data.videoId}/ai-${Date.now()}-${i}.${ext}`;
-          const { error: upErr } = await supabase.storage
-            .from('thumbnails')
-            .upload(path, blob, { contentType: mime, upsert: true });
-          if (upErr) throw upErr;
-          const { data: pub } = supabase.storage.from('thumbnails').getPublicUrl(path);
-          urls.push(pub.publicUrl);
-          await supabase.from('thumbnail_candidates').insert({
-            video_id: data.videoId,
-            owner_id: userId,
-            url: pub.publicUrl,
-            source: 'ai',
-            position: i,
-            selected: false,
-          });
-        } catch { /* skip failures */ }
+      // Insert new candidates.
+      const inserts = keep.map((r, i) => ({
+        video_id: data.videoId,
+        owner_id: userId,
+        url: r.url,
+        source: 'ai',
+        position: i,
+        selected: i === 0,
+        score: r.final,
+        score_breakdown: r.ai
+          ? {
+              faces: r.ai.faces,
+              smiles: r.ai.smiles,
+              emotions: r.ai.emotions,
+              motion: r.ai.motion,
+              sharpness: r.ai.sharpness,
+              brightness: r.ai.brightness,
+              text_visibility: r.ai.text_visibility,
+              subject_prominence: r.ai.subject_prominence,
+              overall: r.ai.overall,
+              heuristic: r.heur,
+            }
+          : { heuristic: r.heur },
+        reason: r.ai?.reason ?? null,
+        timestamp_seconds: r.ts,
+      }));
+      if (inserts.length > 0) {
+        await supabase.from('thumbnail_candidates').insert(inserts);
       }
 
-      // If the video has no thumbnail yet, auto-pick the first generated one
-      if (urls.length > 0) {
-        const { data: cur } = await supabase
-          .from('videos')
-          .select('thumbnail_url')
-          .eq('id', data.videoId)
-          .maybeSingle();
-        if (!cur?.thumbnail_url) {
-          await supabase.from('videos').update({ thumbnail_url: urls[0] }).eq('id', data.videoId);
-          await supabase
-            .from('thumbnail_candidates')
-            .update({ selected: true })
-            .eq('video_id', data.videoId)
-            .eq('url', urls[0]);
-        }
-      }
+      // Update the video with the winner, unless the creator already picked
+      // a custom thumbnail themselves.
+      const best = keep[0];
+      const { data: cur } = await supabase
+        .from('videos')
+        .select('thumbnail_url')
+        .eq('id', data.videoId)
+        .maybeSingle();
+      const hasCustom = !!cur?.thumbnail_url && cur.thumbnail_url.includes('/custom-');
+      const patch: Record<string, unknown> = {
+        ai_thumbnail_url: best?.url ?? null,
+        thumbnail_options: keep.map((r) => r.url),
+        thumbnail_generated_at: new Date().toISOString(),
+        thumbnail_generation_status: best ? 'done' : 'failed',
+      };
+      if (best && !hasCustom) patch.thumbnail_url = best.url;
+      await supabase.from('videos').update(patch).eq('id', data.videoId);
 
-      await upsertJob(supabase, data.videoId, 'thumbnails', urls.length ? 'done' : 'failed', urls.length ? undefined : 'No thumbnails produced');
-      return { ok: urls.length > 0, urls };
+      await upsertJob(
+        supabase,
+        data.videoId,
+        'thumbnails',
+        best ? 'done' : 'failed',
+        best ? undefined : 'No frames survived scoring',
+      );
+      return { ok: !!best, urls: keep.map((r) => r.url), scores: keep.map((r) => r.final) };
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Thumbnail generation failed';
+      const msg = e instanceof Error ? e.message : 'Thumbnail ranking failed';
       await upsertJob(supabase, data.videoId, 'thumbnails', 'failed', msg);
+      await supabase
+        .from('videos')
+        .update({ thumbnail_generation_status: 'failed' })
+        .eq('id', data.videoId);
       return { ok: false, error: msg };
     }
   });
