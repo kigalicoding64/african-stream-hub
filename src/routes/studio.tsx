@@ -32,6 +32,10 @@ interface Row {
   visibility: "public" | "unlisted" | "private";
   status: string;
   thumbnail_url: string | null;
+  ai_thumbnail_url: string | null;
+  thumbnail_generation_status: string;
+  video_url: string;
+  media_type: "video" | "audio";
   views: number;
   likes: number;
   duration_seconds: number | null;
