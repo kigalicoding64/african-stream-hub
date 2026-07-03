@@ -323,8 +323,9 @@ export const generateVideoMetadata = createServerFn({ method: 'POST' })
 
       await upsertJob(supabase, data.videoId, 'metadata', 'done');
 
-      // Fire-and-forget: refresh embedding so search picks up new keywords
+      // Fire-and-forget: refresh embedding + moderation so search & safety flags stay fresh
       embedVideoInline(supabase, userId, data.videoId).catch(() => {});
+      moderateVideoInline(supabase, userId, data.videoId).catch(() => {});
 
       return { ok: true };
     } catch (e) {
