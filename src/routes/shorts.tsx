@@ -32,9 +32,10 @@ function ShortsPage() {
   }, []);
   return (
     <div className="min-h-screen bg-black text-white">
+      <h1 className="sr-only">Shorts — vertical videos from African creators on IBONA</h1>
       <header className="fixed top-0 inset-x-0 z-30 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/80 to-transparent">
         <Link to="/"><IbonaLogo /></Link>
-        <div className="text-sm font-bold uppercase tracking-widest text-primary">Shorts</div>
+        <div className="text-sm font-bold uppercase tracking-widest text-primary" aria-hidden="true">Shorts</div>
       </header>
       {videos.length === 0 ? (
         <div className="h-screen flex items-center justify-center text-white/60">No shorts uploaded yet.</div>
