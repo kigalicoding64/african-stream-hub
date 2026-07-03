@@ -306,6 +306,7 @@ export const generateVideoMetadata = createServerFn({ method: 'POST' })
             industry: result.industry as string,
             audience: result.audience as string,
             social_posts: result.social_posts,
+            chapters: Array.isArray(result.chapters) ? result.chapters : [],
           },
           { onConflict: 'video_id' },
         );
