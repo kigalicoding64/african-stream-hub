@@ -6,13 +6,20 @@ import { fetchPublishedVideos } from "@/lib/videos-api";
 import { MobileBottomNav } from "@/components/Sidebar";
 import { IbonaLogo } from "@/components/IbonaLogo";
 
+const SHORTS_DESC = "Endless vertical shorts from African creators on IBONA — quick agasobanuye clips, comedy, news shorts, music moments and dance in a snackable feed built for mobile.";
+
 export const Route = createFileRoute("/shorts")({
-  head: () => ({ meta: [
-    { title: "Shorts — IBONA" },
-    { name: "description", content: "Snackable vertical videos from African creators." },
-    { property: "og:title", content: "Shorts — IBONA" },
-    { property: "og:description", content: "Vertical videos. African creators. Endless scroll." },
-  ]}),
+  head: () => ({
+    meta: [
+      { title: "Shorts — Vertical African Videos | IBONA" },
+      { name: "description", content: SHORTS_DESC },
+      { property: "og:title", content: "Shorts — Vertical African Videos | IBONA" },
+      { property: "og:description", content: SHORTS_DESC },
+      { property: "og:url", content: "https://rebalive.egreedtech.org/shorts" },
+      { property: "og:type", content: "website" },
+    ],
+    links: [{ rel: "canonical", href: "https://rebalive.egreedtech.org/shorts" }],
+  }),
   component: ShortsPage,
 });
 
@@ -25,9 +32,10 @@ function ShortsPage() {
   }, []);
   return (
     <div className="min-h-screen bg-black text-white">
+      <h1 className="sr-only">Shorts — vertical videos from African creators on IBONA</h1>
       <header className="fixed top-0 inset-x-0 z-30 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/80 to-transparent">
         <Link to="/"><IbonaLogo /></Link>
-        <div className="text-sm font-bold uppercase tracking-widest text-primary">Shorts</div>
+        <div className="text-sm font-bold uppercase tracking-widest text-primary" aria-hidden="true">Shorts</div>
       </header>
       {videos.length === 0 ? (
         <div className="h-screen flex items-center justify-center text-white/60">No shorts uploaded yet.</div>

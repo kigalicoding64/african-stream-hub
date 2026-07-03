@@ -12,12 +12,15 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as UploadRouteImport } from './routes/upload'
 import { Route as TrendingRouteImport } from './routes/trending'
 import { Route as StudioRouteImport } from './routes/studio'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ShortsRouteImport } from './routes/shorts'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MusicRouteImport } from './routes/music'
 import { Route as MoviesRouteImport } from './routes/movies'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchVideoIdRouteImport } from './routes/watch.$videoId'
@@ -38,6 +41,11 @@ const StudioRoute = StudioRouteImport.update({
   path: '/studio',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShortsRoute = ShortsRouteImport.update({
   id: '/shorts',
   path: '/shorts',
@@ -53,6 +61,11 @@ const SearchRoute = SearchRouteImport.update({
   path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -66,6 +79,11 @@ const MusicRoute = MusicRouteImport.update({
 const MoviesRoute = MoviesRouteImport.update({
   id: '/movies',
   path: '/movies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -92,12 +110,15 @@ const CUsernameRoute = CUsernameRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/movies': typeof MoviesRoute
   '/music': typeof MusicRoute
   '/profile': typeof ProfileRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
@@ -107,12 +128,15 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/movies': typeof MoviesRoute
   '/music': typeof MusicRoute
   '/profile': typeof ProfileRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
@@ -123,12 +147,15 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/movies': typeof MoviesRoute
   '/music': typeof MusicRoute
   '/profile': typeof ProfileRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
@@ -140,12 +167,15 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/llms.txt'
     | '/movies'
     | '/music'
     | '/profile'
+    | '/robots.txt'
     | '/search'
     | '/settings'
     | '/shorts'
+    | '/sitemap.xml'
     | '/studio'
     | '/trending'
     | '/upload'
@@ -155,12 +185,15 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/llms.txt'
     | '/movies'
     | '/music'
     | '/profile'
+    | '/robots.txt'
     | '/search'
     | '/settings'
     | '/shorts'
+    | '/sitemap.xml'
     | '/studio'
     | '/trending'
     | '/upload'
@@ -170,12 +203,15 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/llms.txt'
     | '/movies'
     | '/music'
     | '/profile'
+    | '/robots.txt'
     | '/search'
     | '/settings'
     | '/shorts'
+    | '/sitemap.xml'
     | '/studio'
     | '/trending'
     | '/upload'
@@ -186,12 +222,15 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
   MoviesRoute: typeof MoviesRoute
   MusicRoute: typeof MusicRoute
   ProfileRoute: typeof ProfileRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   ShortsRoute: typeof ShortsRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StudioRoute: typeof StudioRoute
   TrendingRoute: typeof TrendingRoute
   UploadRoute: typeof UploadRoute
@@ -222,6 +261,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shorts': {
       id: '/shorts'
       path: '/shorts'
@@ -243,6 +289,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -262,6 +315,13 @@ declare module '@tanstack/react-router' {
       path: '/movies'
       fullPath: '/movies'
       preLoaderRoute: typeof MoviesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -298,12 +358,15 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
   MoviesRoute: MoviesRoute,
   MusicRoute: MusicRoute,
   ProfileRoute: ProfileRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   ShortsRoute: ShortsRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   StudioRoute: StudioRoute,
   TrendingRoute: TrendingRoute,
   UploadRoute: UploadRoute,
