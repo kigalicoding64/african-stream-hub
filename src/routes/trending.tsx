@@ -54,9 +54,12 @@ function TrendingPage() {
       {!loading && list.length === 0 ? (
         <p className="text-muted-foreground">No videos uploaded yet.</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 animate-fade-in">
-          {list.map((v) => <VideoCard key={v.id} video={v} />)}
-        </div>
+        <section aria-labelledby="trending-grid-heading">
+          <h2 id="trending-grid-heading" className="sr-only">Trending videos</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 animate-fade-in">
+            {list.map((v) => <VideoCard key={v.id} video={v} />)}
+          </div>
+        </section>
       )}
     </AppLayout>
   );

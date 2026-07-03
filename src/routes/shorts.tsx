@@ -6,13 +6,20 @@ import { fetchPublishedVideos } from "@/lib/videos-api";
 import { MobileBottomNav } from "@/components/Sidebar";
 import { IbonaLogo } from "@/components/IbonaLogo";
 
+const SHORTS_DESC = "Endless vertical shorts from African creators on IBONA — quick agasobanuye clips, comedy, news shorts, music moments and dance in a snackable feed built for mobile.";
+
 export const Route = createFileRoute("/shorts")({
-  head: () => ({ meta: [
-    { title: "Shorts — IBONA" },
-    { name: "description", content: "Snackable vertical videos from African creators." },
-    { property: "og:title", content: "Shorts — IBONA" },
-    { property: "og:description", content: "Vertical videos. African creators. Endless scroll." },
-  ]}),
+  head: () => ({
+    meta: [
+      { title: "Shorts — Vertical African Videos | IBONA" },
+      { name: "description", content: SHORTS_DESC },
+      { property: "og:title", content: "Shorts — Vertical African Videos | IBONA" },
+      { property: "og:description", content: SHORTS_DESC },
+      { property: "og:url", content: "https://rebalive.egreedtech.org/shorts" },
+      { property: "og:type", content: "website" },
+    ],
+    links: [{ rel: "canonical", href: "https://rebalive.egreedtech.org/shorts" }],
+  }),
   component: ShortsPage,
 });
 
