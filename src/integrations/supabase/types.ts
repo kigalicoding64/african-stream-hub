@@ -263,11 +263,14 @@ export type Database = {
         Row: {
           audience: string | null
           category_suggested: string | null
+          chapters: Json | null
           created_at: string
           detected_language: string | null
           hashtags: string[] | null
           industry: string | null
           key_takeaways: Json | null
+          moderation: Json | null
+          moderation_status: string | null
           seo_description: string | null
           seo_title: string | null
           social_posts: Json | null
@@ -282,11 +285,14 @@ export type Database = {
         Insert: {
           audience?: string | null
           category_suggested?: string | null
+          chapters?: Json | null
           created_at?: string
           detected_language?: string | null
           hashtags?: string[] | null
           industry?: string | null
           key_takeaways?: Json | null
+          moderation?: Json | null
+          moderation_status?: string | null
           seo_description?: string | null
           seo_title?: string | null
           social_posts?: Json | null
@@ -301,11 +307,14 @@ export type Database = {
         Update: {
           audience?: string | null
           category_suggested?: string | null
+          chapters?: Json | null
           created_at?: string
           detected_language?: string | null
           hashtags?: string[] | null
           industry?: string | null
           key_takeaways?: Json | null
+          moderation?: Json | null
+          moderation_status?: string | null
           seo_description?: string | null
           seo_title?: string | null
           social_posts?: Json | null

@@ -241,7 +241,7 @@ export const generateVideoMetadata = createServerFn({ method: 'POST' })
       const schema = {
         type: 'object',
         additionalProperties: false,
-        required: ['seo_title','seo_description','summary_short','summary_long','key_takeaways','tags','hashtags','category_suggested','topic','industry','audience','social_posts','keywords'],
+        required: ['seo_title','seo_description','summary_short','summary_long','key_takeaways','tags','hashtags','category_suggested','topic','industry','audience','social_posts','keywords','chapters'],
         properties: {
           seo_title: { type: 'string' },
           seo_description: { type: 'string' },
@@ -255,6 +255,18 @@ export const generateVideoMetadata = createServerFn({ method: 'POST' })
           topic: { type: 'string' },
           industry: { type: 'string' },
           audience: { type: 'string' },
+          chapters: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['title', 'start_seconds'],
+              properties: {
+                title: { type: 'string' },
+                start_seconds: { type: 'number' },
+              },
+            },
+          },
           social_posts: {
             type: 'object',
             additionalProperties: false,
@@ -268,10 +280,11 @@ export const generateVideoMetadata = createServerFn({ method: 'POST' })
         },
       };
 
+      const duration = video.duration_seconds || 0;
       const result = await chatJSON<Record<string, unknown>>({
         system:
           'You are an expert African-content SEO assistant for IBONA (formerly Rebalive) — a Rwanda/East-Africa-first video platform on rebalive.egreedtech.org. Optimize for Kinyarwanda, English, French, and Swahili discovery. Always include Kinyarwanda-relevant SEO keywords (e.g. agasobanuye, film nyarwanda, amakuru, news shorts, best Rwandan movie) when remotely relevant. Return JSON only matching the provided schema.',
-        prompt: `Generate SEO metadata for this video.\n\nOriginal title: ${video.title}\nOriginal description: ${video.description ?? '(none)'}\nDeclared category: ${video.category}\nDeclared language: ${video.language}\n\nContent source:\n"""${source}"""\n\nRules:\n- seo_title: <60 chars, punchy, includes top keyword\n- seo_description: <160 chars\n- summary_short: 1-2 sentences\n- summary_long: 3-5 sentences\n- key_takeaways: 3-6 bullets\n- tags: 6-12 lowercase, no #\n- hashtags: 4-8 with #\n- keywords: 8-15 SEO keywords mixing Kinyarwanda + English (must include agasobanuye/film nyarwanda/amakuru if the content fits)\n- category_suggested: one of Music | Comedy | Films | Agasobanuye | Education | Agriculture | Business | Technology | News | Sports\n- social_posts.x: <280 chars with 1-3 hashtags\n- social_posts.facebook: 2-3 sentences\n- social_posts.linkedin: professional 3-4 sentences`,
+        prompt: `Generate SEO metadata for this video.\n\nOriginal title: ${video.title}\nOriginal description: ${video.description ?? '(none)'}\nDeclared category: ${video.category}\nDeclared language: ${video.language}\nDuration: ${duration}s\n\nContent source:\n"""${source}"""\n\nRules:\n- seo_title: <60 chars, punchy, includes top keyword\n- seo_description: <160 chars\n- summary_short: 1-2 sentences\n- summary_long: 3-5 sentences\n- key_takeaways: 3-6 bullets\n- tags: 6-12 lowercase, no #\n- hashtags: 4-8 with #\n- keywords: 8-15 SEO keywords mixing Kinyarwanda + English (must include agasobanuye/film nyarwanda/amakuru if the content fits)\n- category_suggested: one of Music | Comedy | Films | Agasobanuye | Education | Agriculture | Business | Technology | News | Sports\n- chapters: 3-8 chapter markers with start_seconds within [0, ${duration || 'duration'}], evenly covering the video, titles under 60 chars. Return empty array if duration is unknown or too short (< 90s).\n- social_posts.x: <280 chars with 1-3 hashtags\n- social_posts.facebook: 2-3 sentences\n- social_posts.linkedin: professional 3-4 sentences`,
         schema,
       });
 
@@ -293,6 +306,7 @@ export const generateVideoMetadata = createServerFn({ method: 'POST' })
             industry: result.industry as string,
             audience: result.audience as string,
             social_posts: result.social_posts,
+            chapters: Array.isArray(result.chapters) ? result.chapters : [],
           },
           { onConflict: 'video_id' },
         );
@@ -309,8 +323,9 @@ export const generateVideoMetadata = createServerFn({ method: 'POST' })
 
       await upsertJob(supabase, data.videoId, 'metadata', 'done');
 
-      // Fire-and-forget: refresh embedding so search picks up new keywords
+      // Fire-and-forget: refresh embedding + moderation so search & safety flags stay fresh
       embedVideoInline(supabase, userId, data.videoId).catch(() => {});
+      moderateVideoInline(supabase, userId, data.videoId).catch(() => {});
 
       return { ok: true };
     } catch (e) {
@@ -366,6 +381,62 @@ async function embedVideoInline(supabase: SupabaseLike, userId: string, videoId:
     await upsertJob(supabase, videoId, 'embedding', 'done');
   } catch (e) {
     await upsertJob(supabase, videoId, 'embedding', 'failed', e instanceof Error ? e.message : 'Embed failed');
+  }
+}
+
+// Internal moderation helper reused by the metadata pipeline.
+async function moderateVideoInline(supabase: SupabaseLike, userId: string, videoId: string) {
+  const { data: v } = await supabase
+    .from('videos')
+    .select('owner_id, title, description, language, category')
+    .eq('id', videoId)
+    .maybeSingle();
+  if (!v || (v as { owner_id: string }).owner_id !== userId) return;
+  const vv = v as { title: string; description: string | null; language: string; category: string };
+  await upsertJob(supabase, videoId, 'moderation' as never, 'running');
+  try {
+    const { chatJSON } = await import('./ai-gateway.server');
+    const { data: meta } = await supabase
+      .from('video_ai_metadata')
+      .select('transcript_text, summary_long')
+      .eq('video_id', videoId)
+      .maybeSingle();
+    const mm = meta as { transcript_text: string | null; summary_long: string | null } | null;
+    const source =
+      mm?.transcript_text?.slice(0, 8000) ?? mm?.summary_long ?? `${vv.title}\n${vv.description ?? ''}`;
+    const schema = {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status', 'categories', 'notes'],
+      properties: {
+        status: { type: 'string', enum: ['safe', 'review', 'blocked'] },
+        categories: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['violence','nudity','hate_speech','spam','graphic','copyright'],
+          properties: {
+            violence: { type: 'number' }, nudity: { type: 'number' }, hate_speech: { type: 'number' },
+            spam: { type: 'number' }, graphic: { type: 'number' }, copyright: { type: 'number' },
+          },
+        },
+        notes: { type: 'string' },
+      },
+    };
+    const result = await chatJSON<{ status: string; categories: Record<string, number>; notes: string }>({
+      system:
+        'You are a content-safety reviewer for IBONA. Score 0..1 per category. status=safe if all <0.3, review if any 0.3–0.7, blocked if any >0.7 for violence/nudity/hate/graphic or clear copyright/spam. Return JSON only.',
+      prompt: `Title: ${vv.title}\nDescription: ${vv.description ?? ''}\nCategory: ${vv.category}\nLanguage: ${vv.language}\n\nContent:\n"""${source}"""`,
+      schema,
+    });
+    await supabase
+      .from('video_ai_metadata')
+      .upsert(
+        { video_id: videoId, moderation: { categories: result.categories, notes: result.notes }, moderation_status: result.status },
+        { onConflict: 'video_id' },
+      );
+    await upsertJob(supabase, videoId, 'moderation' as never, 'done');
+  } catch (e) {
+    await upsertJob(supabase, videoId, 'moderation' as never, 'failed', e instanceof Error ? e.message : 'Moderation failed');
   }
 }
 
@@ -589,4 +660,84 @@ export const getAiStatus = createServerFn({ method: 'GET' })
         .order('score', { ascending: false }),
     ]);
     return { jobs: jobs ?? [], metadata: meta ?? null, captions: caps ?? [], thumbnails: thumbs ?? [] };
+  });
+
+// =========================================================================
+// moderateVideo — Gemini-driven content moderation over transcript + metadata
+// Categories: violence, nudity, hate speech, spam, graphic content, copyright.
+// Sets moderation_status to 'safe' | 'review' | 'blocked' for reviewer triage.
+// Never blocks playback on its own — creators/admins act on the flag.
+// =========================================================================
+export const moderateVideo = createServerFn({ method: 'POST' })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => VideoIdInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const supabase = getSupabaseFromContext(context);
+    const userId = (context as { userId: string }).userId;
+    const video = await ensureOwner(supabase, userId, data.videoId);
+    await upsertJob(supabase, data.videoId, 'moderation' as never, 'running');
+    try {
+      const { chatJSON } = await import('./ai-gateway.server');
+      const { data: meta } = await supabase
+        .from('video_ai_metadata')
+        .select('transcript_text, summary_long')
+        .eq('video_id', data.videoId)
+        .maybeSingle();
+      const source =
+        (meta?.transcript_text as string | null)?.slice(0, 8000) ??
+        (meta?.summary_long as string | null) ??
+        `${video.title}\n${video.description ?? ''}`;
+
+      const schema = {
+        type: 'object',
+        additionalProperties: false,
+        required: ['status', 'categories', 'notes'],
+        properties: {
+          status: { type: 'string', enum: ['safe', 'review', 'blocked'] },
+          categories: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['violence','nudity','hate_speech','spam','graphic','copyright'],
+            properties: {
+              violence: { type: 'number' },
+              nudity: { type: 'number' },
+              hate_speech: { type: 'number' },
+              spam: { type: 'number' },
+              graphic: { type: 'number' },
+              copyright: { type: 'number' },
+            },
+          },
+          notes: { type: 'string' },
+        },
+      };
+
+      const result = await chatJSON<{
+        status: 'safe' | 'review' | 'blocked';
+        categories: Record<string, number>;
+        notes: string;
+      }>({
+        system:
+          'You are a content-safety reviewer for IBONA, an African video platform. Score risk 0..1 per category. Use status=safe when all <0.3, review when any 0.3–0.7, blocked when any >0.7 for violence/nudity/hate/graphic or spam/copyright is clear. Return JSON only.',
+        prompt: `Title: ${video.title}\nDescription: ${video.description ?? ''}\nCategory: ${video.category}\nLanguage: ${video.language}\n\nContent (transcript or summary):\n"""${source}"""`,
+        schema,
+      });
+
+      await supabase
+        .from('video_ai_metadata')
+        .upsert(
+          {
+            video_id: data.videoId,
+            moderation: { categories: result.categories, notes: result.notes },
+            moderation_status: result.status,
+          },
+          { onConflict: 'video_id' },
+        );
+
+      await upsertJob(supabase, data.videoId, 'moderation' as never, 'done');
+      return { ok: true, status: result.status, categories: result.categories };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Moderation failed';
+      await upsertJob(supabase, data.videoId, 'moderation' as never, 'failed', msg);
+      return { ok: false, error: msg };
+    }
   });
