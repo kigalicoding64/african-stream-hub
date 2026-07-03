@@ -56,7 +56,6 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "canonical", href: SITE_ORIGIN },
       { rel: "alternate", hrefLang: "rw", href: SITE_ORIGIN },
       { rel: "alternate", hrefLang: "en", href: SITE_ORIGIN },
       { rel: "alternate", hrefLang: "sw", href: SITE_ORIGIN },
