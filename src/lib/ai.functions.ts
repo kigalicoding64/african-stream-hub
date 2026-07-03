@@ -381,6 +381,61 @@ async function embedVideoInline(supabase: SupabaseLike, userId: string, videoId:
     await upsertJob(supabase, videoId, 'embedding', 'done');
   } catch (e) {
     await upsertJob(supabase, videoId, 'embedding', 'failed', e instanceof Error ? e.message : 'Embed failed');
+}
+
+// Internal moderation helper reused by the metadata pipeline.
+async function moderateVideoInline(supabase: SupabaseLike, userId: string, videoId: string) {
+  const { data: v } = await supabase
+    .from('videos')
+    .select('owner_id, title, description, language, category')
+    .eq('id', videoId)
+    .maybeSingle();
+  if (!v || (v as { owner_id: string }).owner_id !== userId) return;
+  const vv = v as { title: string; description: string | null; language: string; category: string };
+  await upsertJob(supabase, videoId, 'moderation' as never, 'running');
+  try {
+    const { chatJSON } = await import('./ai-gateway.server');
+    const { data: meta } = await supabase
+      .from('video_ai_metadata')
+      .select('transcript_text, summary_long')
+      .eq('video_id', videoId)
+      .maybeSingle();
+    const mm = meta as { transcript_text: string | null; summary_long: string | null } | null;
+    const source =
+      mm?.transcript_text?.slice(0, 8000) ?? mm?.summary_long ?? `${vv.title}\n${vv.description ?? ''}`;
+    const schema = {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status', 'categories', 'notes'],
+      properties: {
+        status: { type: 'string', enum: ['safe', 'review', 'blocked'] },
+        categories: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['violence','nudity','hate_speech','spam','graphic','copyright'],
+          properties: {
+            violence: { type: 'number' }, nudity: { type: 'number' }, hate_speech: { type: 'number' },
+            spam: { type: 'number' }, graphic: { type: 'number' }, copyright: { type: 'number' },
+          },
+        },
+        notes: { type: 'string' },
+      },
+    };
+    const result = await chatJSON<{ status: string; categories: Record<string, number>; notes: string }>({
+      system:
+        'You are a content-safety reviewer for IBONA. Score 0..1 per category. status=safe if all <0.3, review if any 0.3–0.7, blocked if any >0.7 for violence/nudity/hate/graphic or clear copyright/spam. Return JSON only.',
+      prompt: `Title: ${vv.title}\nDescription: ${vv.description ?? ''}\nCategory: ${vv.category}\nLanguage: ${vv.language}\n\nContent:\n"""${source}"""`,
+      schema,
+    });
+    await supabase
+      .from('video_ai_metadata')
+      .upsert(
+        { video_id: videoId, moderation: { categories: result.categories, notes: result.notes }, moderation_status: result.status },
+        { onConflict: 'video_id' },
+      );
+    await upsertJob(supabase, videoId, 'moderation' as never, 'done');
+  } catch (e) {
+    await upsertJob(supabase, videoId, 'moderation' as never, 'failed', e instanceof Error ? e.message : 'Moderation failed');
   }
 }
 
