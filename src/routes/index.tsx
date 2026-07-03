@@ -16,11 +16,13 @@ import { forYouFeed } from "@/lib/recommend.functions";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "IBONA — African-First Video Streaming" },
-      { name: "description", content: "Premium video streaming made for Africa. Music, Films, Comedy, and Agasobanuye in Kinyarwanda, Swahili and English." },
+      { title: "IBONA — Agasobanuye, Film Nyarwanda & African Music Streaming" },
+      { name: "description", content: "IBONA is the #1 African-first streaming platform for agasobanuye, film nyarwanda, amakuru, news shorts, comedy and African music in Kinyarwanda, Swahili and English." },
       { property: "og:title", content: "IBONA — African-First Video Streaming" },
-      { property: "og:description", content: "Premium African video streaming. Smooth, fast, made for everyone." },
+      { property: "og:description", content: "Premium African video streaming. Music, film nyarwanda, agasobanuye, comedy and news shorts — free to stream." },
+      { property: "og:url", content: "https://rebalive.egreedtech.org/" },
     ],
+    links: [{ rel: "canonical", href: "https://rebalive.egreedtech.org/" }],
   }),
   component: Index,
 });
