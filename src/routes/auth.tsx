@@ -16,12 +16,18 @@ export const Route = createFileRoute("/auth")({
     const { data, error } = await supabase.auth.getUser();
     if (!error && data.user) throw redirect({ to: search.redirect || "/" });
   },
-  head: () => ({
-    meta: [
-      { title: "Sign in — IBONA" },
-      { name: "description", content: "Sign in or create an account to follow creators, comment, save, and upload on IBONA." },
-    ],
-  }),
+  head: () => {
+    const desc = "Sign in or create an IBONA account to follow African creators, comment, save videos, and upload agasobanuye, film nyarwanda, music, comedy and news shorts.";
+    return {
+      meta: [
+        { title: "Sign in — IBONA" },
+        { name: "description", content: desc },
+        { property: "og:title", content: "Sign in to IBONA — African-first streaming" },
+        { property: "og:description", content: desc },
+        { name: "robots", content: "noindex, follow" },
+      ],
+    };
+  },
   component: AuthPage,
 });
 

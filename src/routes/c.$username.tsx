@@ -10,13 +10,38 @@ import { toast } from "sonner";
 import type { Video } from "@/data/videos";
 
 export const Route = createFileRoute("/c/$username")({
-  head: ({ params }) => ({
-    meta: [
-      { title: `@${params.username} — IBONA` },
-      { name: "description", content: `Videos uploaded by @${params.username} on IBONA.` },
-      { property: "og:title", content: `@${params.username} on IBONA` },
-    ],
-  }),
+  head: ({ params }) => {
+    const url = `https://rebalive.egreedtech.org/c/${params.username}`;
+    const title = `@${params.username} — Creator on IBONA`;
+    const desc = `Watch videos from @${params.username} on IBONA — African-first streaming for agasobanuye, film nyarwanda, music and shorts. Follow to see new uploads.`;
+    return {
+      meta: [
+        { title },
+        { name: "description", content: desc },
+        { property: "og:title", content: title },
+        { property: "og:description", content: desc },
+        { property: "og:type", content: "profile" },
+        { property: "og:url", content: url },
+        { property: "profile:username", content: params.username },
+      ],
+      links: [{ rel: "canonical", href: url }],
+      scripts: [{
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "ProfilePage",
+          url,
+          mainEntity: {
+            "@type": "Person",
+            name: `@${params.username}`,
+            alternateName: params.username,
+            url,
+          },
+          isPartOf: { "@type": "WebSite", name: "IBONA", url: "https://rebalive.egreedtech.org" },
+        }),
+      }],
+    };
+  },
   component: CreatorPage,
 });
 

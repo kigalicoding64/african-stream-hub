@@ -148,7 +148,7 @@ function FeaturedSlider({ slides }: { slides: Video[] }) {
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8">
               <div className="text-[11px] font-bold uppercase tracking-widest text-primary mb-1">Featured · {s.category}</div>
-              <h3 className="text-xl sm:text-3xl font-black tracking-tight line-clamp-2 max-w-3xl">{s.title}</h3>
+              <h2 className="text-xl sm:text-3xl font-black tracking-tight line-clamp-2 max-w-3xl">{s.title}</h2>
               <p className="text-sm text-muted-foreground mt-1 truncate max-w-2xl">{s.creator} · {s.views} views</p>
             </div>
           </Link>

@@ -17,12 +17,24 @@ const schema = z.object({
 
 export const Route = createFileRoute("/search")({
   validateSearch: zodValidator(schema),
-  head: ({ match }) => ({
-    meta: [
-      { title: `Search${match.search.q ? ` · ${match.search.q}` : ""} — IBONA` },
-      { name: "description", content: "Search creators and content on IBONA." },
-    ],
-  }),
+  head: ({ match }) => {
+    const q = match.search.q;
+    const title = q ? `Search · ${q} — IBONA` : "Search African videos & creators — IBONA";
+    const desc = q
+      ? `Search results for "${q}" on IBONA — find African videos, film nyarwanda, agasobanuye clips, music and creators matching your query.`
+      : "Search IBONA to find your favorite African creators, film nyarwanda, agasobanuye, music, comedy and news shorts by title, language or category.";
+    return {
+      meta: [
+        { title },
+        { name: "description", content: desc },
+        { property: "og:title", content: title },
+        { property: "og:description", content: desc },
+        { property: "og:url", content: "https://rebalive.egreedtech.org/search" },
+        { property: "og:type", content: "website" },
+      ],
+      links: [{ rel: "canonical", href: "https://rebalive.egreedtech.org/search" }],
+    };
+  },
   component: SearchPage,
 });
 

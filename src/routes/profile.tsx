@@ -14,12 +14,18 @@ export const Route = createFileRoute("/profile")({
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth", search: { redirect: "/profile", mode: "login" } });
   },
-  head: () => ({
-    meta: [
-      { title: "My profile — IBONA" },
-      { name: "description", content: "Your IBONA creator profile, videos and stats." },
-    ],
-  }),
+  head: () => {
+    const desc = "Your IBONA creator dashboard — manage uploaded videos, track views and likes, edit your creator profile, and upload new agasobanuye, film nyarwanda or music.";
+    return {
+      meta: [
+        { title: "My profile — Creator dashboard | IBONA" },
+        { name: "description", content: desc },
+        { property: "og:title", content: "My IBONA creator profile" },
+        { property: "og:description", content: desc },
+        { name: "robots", content: "noindex, follow" },
+      ],
+    };
+  },
   component: ProfilePage,
 });
 
