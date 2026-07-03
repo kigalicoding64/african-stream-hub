@@ -241,7 +241,7 @@ export const generateVideoMetadata = createServerFn({ method: 'POST' })
       const schema = {
         type: 'object',
         additionalProperties: false,
-        required: ['seo_title','seo_description','summary_short','summary_long','key_takeaways','tags','hashtags','category_suggested','topic','industry','audience','social_posts','keywords'],
+        required: ['seo_title','seo_description','summary_short','summary_long','key_takeaways','tags','hashtags','category_suggested','topic','industry','audience','social_posts','keywords','chapters'],
         properties: {
           seo_title: { type: 'string' },
           seo_description: { type: 'string' },
@@ -255,6 +255,18 @@ export const generateVideoMetadata = createServerFn({ method: 'POST' })
           topic: { type: 'string' },
           industry: { type: 'string' },
           audience: { type: 'string' },
+          chapters: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['title', 'start_seconds'],
+              properties: {
+                title: { type: 'string' },
+                start_seconds: { type: 'number' },
+              },
+            },
+          },
           social_posts: {
             type: 'object',
             additionalProperties: false,
@@ -268,10 +280,11 @@ export const generateVideoMetadata = createServerFn({ method: 'POST' })
         },
       };
 
+      const duration = video.duration_seconds || 0;
       const result = await chatJSON<Record<string, unknown>>({
         system:
           'You are an expert African-content SEO assistant for IBONA (formerly Rebalive) — a Rwanda/East-Africa-first video platform on rebalive.egreedtech.org. Optimize for Kinyarwanda, English, French, and Swahili discovery. Always include Kinyarwanda-relevant SEO keywords (e.g. agasobanuye, film nyarwanda, amakuru, news shorts, best Rwandan movie) when remotely relevant. Return JSON only matching the provided schema.',
-        prompt: `Generate SEO metadata for this video.\n\nOriginal title: ${video.title}\nOriginal description: ${video.description ?? '(none)'}\nDeclared category: ${video.category}\nDeclared language: ${video.language}\n\nContent source:\n"""${source}"""\n\nRules:\n- seo_title: <60 chars, punchy, includes top keyword\n- seo_description: <160 chars\n- summary_short: 1-2 sentences\n- summary_long: 3-5 sentences\n- key_takeaways: 3-6 bullets\n- tags: 6-12 lowercase, no #\n- hashtags: 4-8 with #\n- keywords: 8-15 SEO keywords mixing Kinyarwanda + English (must include agasobanuye/film nyarwanda/amakuru if the content fits)\n- category_suggested: one of Music | Comedy | Films | Agasobanuye | Education | Agriculture | Business | Technology | News | Sports\n- social_posts.x: <280 chars with 1-3 hashtags\n- social_posts.facebook: 2-3 sentences\n- social_posts.linkedin: professional 3-4 sentences`,
+        prompt: `Generate SEO metadata for this video.\n\nOriginal title: ${video.title}\nOriginal description: ${video.description ?? '(none)'}\nDeclared category: ${video.category}\nDeclared language: ${video.language}\nDuration: ${duration}s\n\nContent source:\n"""${source}"""\n\nRules:\n- seo_title: <60 chars, punchy, includes top keyword\n- seo_description: <160 chars\n- summary_short: 1-2 sentences\n- summary_long: 3-5 sentences\n- key_takeaways: 3-6 bullets\n- tags: 6-12 lowercase, no #\n- hashtags: 4-8 with #\n- keywords: 8-15 SEO keywords mixing Kinyarwanda + English (must include agasobanuye/film nyarwanda/amakuru if the content fits)\n- category_suggested: one of Music | Comedy | Films | Agasobanuye | Education | Agriculture | Business | Technology | News | Sports\n- chapters: 3-8 chapter markers with start_seconds within [0, ${duration || 'duration'}], evenly covering the video, titles under 60 chars. Return empty array if duration is unknown or too short (< 90s).\n- social_posts.x: <280 chars with 1-3 hashtags\n- social_posts.facebook: 2-3 sentences\n- social_posts.linkedin: professional 3-4 sentences`,
         schema,
       });
 
