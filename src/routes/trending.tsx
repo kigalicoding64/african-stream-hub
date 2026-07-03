@@ -14,13 +14,20 @@ function parseViews(s: string): number {
   return unit === "M" ? n * 1_000_000 : unit === "K" ? n * 1_000 : n;
 }
 
+const TRENDING_DESC = "See what Africa is watching right now on IBONA — the most-viewed agasobanuye, film nyarwanda, music, comedy and news shorts trending across the continent this week.";
+
 export const Route = createFileRoute("/trending")({
-  head: () => ({ meta: [
-    { title: "Trending — IBONA" },
-    { name: "description", content: "What's hot right now across Africa." },
-    { property: "og:title", content: "Trending — IBONA" },
-    { property: "og:description", content: "The most-watched videos on IBONA this week." },
-  ]}),
+  head: () => ({
+    meta: [
+      { title: "Trending — Most-Watched African Videos | IBONA" },
+      { name: "description", content: TRENDING_DESC },
+      { property: "og:title", content: "Trending — Most-Watched African Videos | IBONA" },
+      { property: "og:description", content: TRENDING_DESC },
+      { property: "og:url", content: "https://rebalive.egreedtech.org/trending" },
+      { property: "og:type", content: "website" },
+    ],
+    links: [{ rel: "canonical", href: "https://rebalive.egreedtech.org/trending" }],
+  }),
   component: TrendingPage,
 });
 
