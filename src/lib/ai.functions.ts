@@ -381,6 +381,7 @@ async function embedVideoInline(supabase: SupabaseLike, userId: string, videoId:
     await upsertJob(supabase, videoId, 'embedding', 'done');
   } catch (e) {
     await upsertJob(supabase, videoId, 'embedding', 'failed', e instanceof Error ? e.message : 'Embed failed');
+  }
 }
 
 // Internal moderation helper reused by the metadata pipeline.
