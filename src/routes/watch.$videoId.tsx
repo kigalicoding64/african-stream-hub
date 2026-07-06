@@ -42,20 +42,36 @@ export const Route = createFileRoute("/watch/$videoId")({
     }
     const kwList = [v.title, v.creator, v.category, v.language, "agasobanuye", "film nyarwanda", "amakuru", "IBONA", "Rebalive"]
       .filter(Boolean).join(", ");
+    // Convert "mm:ss" or "hh:mm:ss" duration to ISO 8601 PTxxMxxS
+    const toISODuration = (d?: string): string | undefined => {
+      if (!d) return undefined;
+      const parts = d.split(":").map((n) => parseInt(n, 10));
+      if (parts.some(isNaN)) return undefined;
+      let h = 0, m = 0, s = 0;
+      if (parts.length === 3) [h, m, s] = parts;
+      else if (parts.length === 2) [m, s] = parts;
+      else [s] = parts;
+      return `PT${h ? h + "H" : ""}${m ? m + "M" : ""}${s ? s + "S" : "0S"}`;
+    };
+    const viewsNum = parseInt(String(v.views ?? "0").replace(/[^\d]/g, ""), 10) || 0;
+    const description = (v.description || `Watch ${v.title} by ${v.creator} on IBONA — agasobanuye, film nyarwanda and African content.`).slice(0, 300);
     return {
       meta: [
         { title: `${v.title} — IBONA` },
-        { name: "description", content: (v.description || `Watch ${v.title} by ${v.creator} on IBONA — agasobanuye, film nyarwanda and African content.`).slice(0, 160) },
+        { name: "description", content: description.slice(0, 160) },
         { name: "keywords", content: kwList },
         { property: "og:type", content: "video.other" },
         { property: "og:url", content: url },
         { property: "og:title", content: v.title },
-        { property: "og:description", content: (v.description || "").slice(0, 160) },
+        { property: "og:description", content: description.slice(0, 160) },
         { property: "og:image", content: v.thumbnail },
         { property: "og:video", content: v.previewSrc ?? "" },
+        { property: "og:video:type", content: "video/mp4" },
+        { property: "video:duration", content: String(toISODuration(v.duration) ?? "") },
         { name: "twitter:card", content: "player" },
         { name: "twitter:title", content: v.title },
         { name: "twitter:image", content: v.thumbnail },
+        { name: "twitter:player", content: url },
       ],
       links: [{ rel: "canonical", href: url }],
       scripts: [
@@ -65,15 +81,45 @@ export const Route = createFileRoute("/watch/$videoId")({
             "@context": "https://schema.org",
             "@type": "VideoObject",
             name: v.title,
-            description: v.description || v.title,
+            description,
             thumbnailUrl: [v.thumbnail],
             uploadDate: new Date().toISOString(),
+            duration: toISODuration(v.duration),
             contentUrl: v.previewSrc,
             embedUrl: url,
             inLanguage: v.language,
             keywords: kwList,
-            publisher: { "@type": "Organization", name: "IBONA", url: "https://rebalive.egreedtech.org" },
+            genre: v.category,
+            isFamilyFriendly: true,
+            publisher: {
+              "@type": "Organization",
+              name: "IBONA",
+              url: "https://rebalive.egreedtech.org",
+              logo: { "@type": "ImageObject", url: "https://rebalive.egreedtech.org/favicon.ico" },
+            },
             author: { "@type": "Person", name: v.creator },
+            interactionStatistic: {
+              "@type": "InteractionCounter",
+              interactionType: { "@type": "http://schema.org/WatchAction" },
+              userInteractionCount: viewsNum,
+            },
+            potentialAction: {
+              "@type": "SeekToAction",
+              target: `${url}?t={seek_to_second_number}`,
+              "startOffset-input": "required name=seek_to_second_number",
+            },
+          }),
+        },
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "IBONA", item: "https://rebalive.egreedtech.org" },
+              { "@type": "ListItem", position: 2, name: v.category, item: `https://rebalive.egreedtech.org/search?q=${encodeURIComponent(v.category)}` },
+              { "@type": "ListItem", position: 3, name: v.title, item: url },
+            ],
           }),
         },
       ],
