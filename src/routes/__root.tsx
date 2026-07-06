@@ -56,6 +56,10 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "preconnect", href: "https://buxlzcsvnrouezmsvald.supabase.co", crossOrigin: "anonymous" },
+      { rel: "dns-prefetch", href: "https://buxlzcsvnrouezmsvald.supabase.co" },
+      { rel: "preconnect", href: "https://storage.googleapis.com", crossOrigin: "anonymous" },
+      { rel: "dns-prefetch", href: "https://storage.googleapis.com" },
       { rel: "alternate", hrefLang: "rw", href: SITE_ORIGIN },
       { rel: "alternate", hrefLang: "en", href: SITE_ORIGIN },
       { rel: "alternate", hrefLang: "sw", href: SITE_ORIGIN },
