@@ -13,6 +13,7 @@ import { Route as UploadRouteImport } from './routes/upload'
 import { Route as TrendingRouteImport } from './routes/trending'
 import { Route as StudioRouteImport } from './routes/studio'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SitemapVideosDotxmlRouteImport } from './routes/sitemap-videos[.]xml'
 import { Route as SitemapPagesDotxmlRouteImport } from './routes/sitemap-pages[.]xml'
 import { Route as ShortsRouteImport } from './routes/shorts'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -45,6 +46,11 @@ const StudioRoute = StudioRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapVideosDotxmlRoute = SitemapVideosDotxmlRouteImport.update({
+  id: '/sitemap-videos.xml',
+  path: '/sitemap-videos.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapPagesDotxmlRoute = SitemapPagesDotxmlRouteImport.update({
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
   '/sitemap-pages.xml': typeof SitemapPagesDotxmlRoute
+  '/sitemap-videos.xml': typeof SitemapVideosDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
   '/sitemap-pages.xml': typeof SitemapPagesDotxmlRoute
+  '/sitemap-videos.xml': typeof SitemapVideosDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
   '/sitemap-pages.xml': typeof SitemapPagesDotxmlRoute
+  '/sitemap-videos.xml': typeof SitemapVideosDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
@@ -185,6 +194,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/shorts'
     | '/sitemap-pages.xml'
+    | '/sitemap-videos.xml'
     | '/sitemap.xml'
     | '/studio'
     | '/trending'
@@ -204,6 +214,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/shorts'
     | '/sitemap-pages.xml'
+    | '/sitemap-videos.xml'
     | '/sitemap.xml'
     | '/studio'
     | '/trending'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/shorts'
     | '/sitemap-pages.xml'
+    | '/sitemap-videos.xml'
     | '/sitemap.xml'
     | '/studio'
     | '/trending'
@@ -243,6 +255,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   ShortsRoute: typeof ShortsRoute
   SitemapPagesDotxmlRoute: typeof SitemapPagesDotxmlRoute
+  SitemapVideosDotxmlRoute: typeof SitemapVideosDotxmlRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StudioRoute: typeof StudioRoute
   TrendingRoute: typeof TrendingRoute
@@ -279,6 +292,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap-videos.xml': {
+      id: '/sitemap-videos.xml'
+      path: '/sitemap-videos.xml'
+      fullPath: '/sitemap-videos.xml'
+      preLoaderRoute: typeof SitemapVideosDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap-pages.xml': {
@@ -387,6 +407,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   ShortsRoute: ShortsRoute,
   SitemapPagesDotxmlRoute: SitemapPagesDotxmlRoute,
+  SitemapVideosDotxmlRoute: SitemapVideosDotxmlRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StudioRoute: StudioRoute,
   TrendingRoute: TrendingRoute,
