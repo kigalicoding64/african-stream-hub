@@ -16,6 +16,9 @@ export function Hero({ video }: { video: Video }) {
         alt={video.title}
         width={1920}
         height={1080}
+        loading="eager"
+        fetchPriority="high"
+        decoding="async"
         className="absolute inset-0 h-full w-full object-cover"
       />
       {video.previewSrc && (
@@ -26,6 +29,8 @@ export function Hero({ video }: { video: Video }) {
           loop
           playsInline
           autoPlay
+          preload="metadata"
+          poster={video.thumbnail}
           className="absolute inset-0 h-full w-full object-cover opacity-90"
         />
       )}
