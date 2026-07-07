@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Play, Info, Languages } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { Video } from "@/data/videos";
+import { cdnImage } from "@/lib/cdn-image";
 
 export function Hero({ video }: { video: Video }) {
   const ref = useRef<HTMLVideoElement>(null);
@@ -12,7 +13,7 @@ export function Hero({ video }: { video: Video }) {
   return (
     <section className="relative h-[78vh] min-h-[520px] w-full overflow-hidden rounded-3xl">
       <img
-        src={video.thumbnail}
+        src={cdnImage(video.thumbnail)}
         alt={video.title}
         width={1920}
         height={1080}
@@ -30,7 +31,7 @@ export function Hero({ video }: { video: Video }) {
           playsInline
           autoPlay
           preload="metadata"
-          poster={video.thumbnail}
+          poster={cdnImage(video.thumbnail)}
           className="absolute inset-0 h-full w-full object-cover opacity-90"
         />
       )}
