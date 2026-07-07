@@ -27,6 +27,7 @@ import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchVideoIdRouteImport } from './routes/watch.$videoId'
+import { Route as ImgSplatRouteImport } from './routes/img.$'
 import { Route as CUsernameRouteImport } from './routes/c.$username'
 
 const UploadRoute = UploadRouteImport.update({
@@ -119,6 +120,11 @@ const WatchVideoIdRoute = WatchVideoIdRouteImport.update({
   path: '/watch/$videoId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ImgSplatRoute = ImgSplatRouteImport.update({
+  id: '/img/$',
+  path: '/img/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CUsernameRoute = CUsernameRouteImport.update({
   id: '/c/$username',
   path: '/c/$username',
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
   '/c/$username': typeof CUsernameRoute
+  '/img/$': typeof ImgSplatRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
 }
 export interface FileRoutesByTo {
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
   '/c/$username': typeof CUsernameRoute
+  '/img/$': typeof ImgSplatRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
 }
 export interface FileRoutesById {
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
   '/c/$username': typeof CUsernameRoute
+  '/img/$': typeof ImgSplatRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
 }
 export interface FileRouteTypes {
@@ -210,6 +219,7 @@ export interface FileRouteTypes {
     | '/trending'
     | '/upload'
     | '/c/$username'
+    | '/img/$'
     | '/watch/$videoId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/trending'
     | '/upload'
     | '/c/$username'
+    | '/img/$'
     | '/watch/$videoId'
   id:
     | '__root__'
@@ -252,6 +263,7 @@ export interface FileRouteTypes {
     | '/trending'
     | '/upload'
     | '/c/$username'
+    | '/img/$'
     | '/watch/$videoId'
   fileRoutesById: FileRoutesById
 }
@@ -274,6 +286,7 @@ export interface RootRouteChildren {
   TrendingRoute: typeof TrendingRoute
   UploadRoute: typeof UploadRoute
   CUsernameRoute: typeof CUsernameRoute
+  ImgSplatRoute: typeof ImgSplatRoute
   WatchVideoIdRoute: typeof WatchVideoIdRoute
 }
 
@@ -405,6 +418,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WatchVideoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/img/$': {
+      id: '/img/$'
+      path: '/img/$'
+      fullPath: '/img/$'
+      preLoaderRoute: typeof ImgSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/c/$username': {
       id: '/c/$username'
       path: '/c/$username'
@@ -434,18 +454,9 @@ const rootRouteChildren: RootRouteChildren = {
   TrendingRoute: TrendingRoute,
   UploadRoute: UploadRoute,
   CUsernameRoute: CUsernameRoute,
+  ImgSplatRoute: ImgSplatRoute,
   WatchVideoIdRoute: WatchVideoIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
