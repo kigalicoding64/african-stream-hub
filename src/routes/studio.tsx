@@ -181,6 +181,41 @@ function StudioPage() {
           <Stat icon={MessageCircle} label="Comments" value={commentCount} />
         </div>
 
+        {isAdmin && (
+          <div className="mb-6 rounded-3xl border border-primary/30 bg-primary/5 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Admin · Bulk import</div>
+                <h2 className="text-lg font-bold">Import Daddy M Films catalog</h2>
+                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                  Pulls all 441 films from daddymfilms.com (Sanity CMS) into IBONA. Only run if you own or license this content — imported films are added under your account.
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => importDaddym(true)}
+                  disabled={importing}
+                  className="rounded-full px-4 py-2 text-xs font-bold bg-surface-elevated hover:bg-surface border border-border disabled:opacity-50"
+                >
+                  {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Dry run"}
+                </button>
+                <button
+                  onClick={() => importDaddym(false)}
+                  disabled={importing}
+                  className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold text-primary-foreground disabled:opacity-50"
+                  style={{ background: "var(--gradient-brand)" }}
+                >
+                  {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Film className="h-3.5 w-3.5" />}
+                  {importing ? "Importing…" : "Import all"}
+                </button>
+              </div>
+            </div>
+            {importResult && (
+              <div className="mt-3 text-xs text-muted-foreground rounded-lg bg-surface-elevated/70 px-3 py-2">{importResult}</div>
+            )}
+          </div>
+        )}
+
         <div className="rounded-3xl border border-border bg-surface overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
             <div className="font-bold flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /> Your videos</div>
