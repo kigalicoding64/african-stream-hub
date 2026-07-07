@@ -99,6 +99,39 @@ function StudioPage() {
   const totalLikes = rows.reduce((a, r) => a + (r.likes || 0), 0);
 
   const [backfilling, setBackfilling] = useState<{ done: number; total: number } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const runImport = useServerFn(importDaddymFilms);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase.rpc("has_role", { _user_id: user.id, _role: "admin" }).then(({ data }) => {
+      setIsAdmin(!!data);
+    });
+  }, [user?.id]);
+
+  const importDaddym = async (dryRun: boolean) => {
+    if (!dryRun && !confirm("Import all Daddy M Films into IBONA? You confirmed you own or license this content.")) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const res = await runImport({ data: { dryRun } });
+      const msg = dryRun
+        ? `Dry run: ${res.totalFound} found, ${res.toImport} would import, ${res.skipped} already imported.`
+        : `Imported ${res.imported} of ${res.totalFound} (${res.skipped} already existed).`;
+      setImportResult(msg);
+      toast.success(msg);
+      if (!dryRun) refresh();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Import failed";
+      setImportResult(msg);
+      toast.error(msg);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const backfillThumbnails = async () => {
     if (!user) return;
     const targets = rows.filter((r) => r.media_type === "video" && r.thumbnail_generation_status !== "done");
