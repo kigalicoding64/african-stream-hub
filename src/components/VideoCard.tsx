@@ -68,7 +68,7 @@ export function VideoCard({ video, size = "default" }: Props) {
       <div className="relative aspect-video overflow-hidden rounded-2xl bg-surface ring-1 ring-border transition-all duration-300 group-hover:ring-primary/50 group-hover:scale-[1.02] group-hover:shadow-[var(--shadow-elegant)]">
         {!loaded && <div className="absolute inset-0 animate-pulse bg-surface-elevated" />}
         <img
-          src={video.thumbnail}
+          src={cdnImage(video.thumbnail)}
           alt={video.title}
           loading="lazy"
           decoding="async"
