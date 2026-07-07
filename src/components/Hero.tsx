@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Play, Info, Languages } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { Video } from "@/data/videos";
+import { cdnImage } from "@/lib/cdn-image";
 
 export function Hero({ video }: { video: Video }) {
   const ref = useRef<HTMLVideoElement>(null);
