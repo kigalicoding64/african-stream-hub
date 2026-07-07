@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { transcribeVideo, generateVideoMetadata, generateThumbnails, selectThumbnail, getAiStatus } from "@/lib/ai.functions";
+import { importDaddymFilms } from "@/lib/import-daddym.functions";
+import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/studio")({
   ssr: false,
@@ -97,6 +99,39 @@ function StudioPage() {
   const totalLikes = rows.reduce((a, r) => a + (r.likes || 0), 0);
 
   const [backfilling, setBackfilling] = useState<{ done: number; total: number } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const runImport = useServerFn(importDaddymFilms);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase.rpc("has_role", { _user_id: user.id, _role: "admin" }).then(({ data }) => {
+      setIsAdmin(!!data);
+    });
+  }, [user?.id]);
+
+  const importDaddym = async (dryRun: boolean) => {
+    if (!dryRun && !confirm("Import all Daddy M Films into IBONA? You confirmed you own or license this content.")) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const res = await runImport({ data: { dryRun } });
+      const msg = dryRun
+        ? `Dry run: ${res.totalFound} found, ${res.toImport} would import, ${res.skipped} already imported.`
+        : `Imported ${res.imported} of ${res.totalFound} (${res.skipped} already existed).`;
+      setImportResult(msg);
+      toast.success(msg);
+      if (!dryRun) refresh();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Import failed";
+      setImportResult(msg);
+      toast.error(msg);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const backfillThumbnails = async () => {
     if (!user) return;
     const targets = rows.filter((r) => r.media_type === "video" && r.thumbnail_generation_status !== "done");
@@ -145,6 +180,41 @@ function StudioPage() {
           <Stat icon={Heart} label="Total likes" value={totalLikes} />
           <Stat icon={MessageCircle} label="Comments" value={commentCount} />
         </div>
+
+        {isAdmin && (
+          <div className="mb-6 rounded-3xl border border-primary/30 bg-primary/5 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Admin · Bulk import</div>
+                <h2 className="text-lg font-bold">Import Daddy M Films catalog</h2>
+                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                  Pulls all 441 films from daddymfilms.com (Sanity CMS) into IBONA. Only run if you own or license this content — imported films are added under your account.
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => importDaddym(true)}
+                  disabled={importing}
+                  className="rounded-full px-4 py-2 text-xs font-bold bg-surface-elevated hover:bg-surface border border-border disabled:opacity-50"
+                >
+                  {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Dry run"}
+                </button>
+                <button
+                  onClick={() => importDaddym(false)}
+                  disabled={importing}
+                  className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold text-primary-foreground disabled:opacity-50"
+                  style={{ background: "var(--gradient-brand)" }}
+                >
+                  {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Film className="h-3.5 w-3.5" />}
+                  {importing ? "Importing…" : "Import all"}
+                </button>
+              </div>
+            </div>
+            {importResult && (
+              <div className="mt-3 text-xs text-muted-foreground rounded-lg bg-surface-elevated/70 px-3 py-2">{importResult}</div>
+            )}
+          </div>
+        )}
 
         <div className="rounded-3xl border border-border bg-surface overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
