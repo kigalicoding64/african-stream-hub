@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { ChevronLeft, ChevronRight, PlayCircle } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { ContinueWatchingItem } from "@/lib/videos-api";
+import { cdnImage } from "@/lib/cdn-image";
 
 interface Props {
   items: ContinueWatchingItem[];
