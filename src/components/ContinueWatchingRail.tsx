@@ -58,7 +58,7 @@ export function ContinueWatchingRail({ items }: Props) {
             >
               <div className="relative aspect-video bg-black">
                 <img
-                  src={v.thumbnail}
+                  src={cdnImage(v.thumbnail)}
                   alt={v.title}
                   loading="lazy"
                   className="h-full w-full object-cover group-hover:scale-[1.02] transition"
