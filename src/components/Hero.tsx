@@ -31,7 +31,7 @@ export function Hero({ video }: { video: Video }) {
           playsInline
           autoPlay
           preload="metadata"
-          poster={video.thumbnail}
+          poster={cdnImage(video.thumbnail)}
           className="absolute inset-0 h-full w-full object-cover opacity-90"
         />
       )}
