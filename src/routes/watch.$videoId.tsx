@@ -537,6 +537,9 @@ function WatchPage() {
 
   const preload = shouldReducePreviews ? "metadata" : "auto";
   const isAudio = video.mediaType === "audio";
+  const source = classifyVideoSource(video.previewSrc);
+  const isIframe = source.kind === "iframe";
+  const isUnsupported = source.kind === "unsupported";
 
   return (
     <AppLayout>
