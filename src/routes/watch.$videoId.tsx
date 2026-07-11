@@ -27,6 +27,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { loadPrefs, savePrefs } from "@/lib/playback-prefs";
 import { toast } from "sonner";
+import { classifyVideoSource } from "@/lib/video-embed";
+import { ExternalLink } from "lucide-react";
 
 export const Route = createFileRoute("/watch/$videoId")({
   loader: ({ params }) => {
