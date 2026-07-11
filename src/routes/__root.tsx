@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
+import { IBONA_KEYWORDS } from "@/lib/ibona-keywords";
 
 function NotFoundComponent() {
   return (
