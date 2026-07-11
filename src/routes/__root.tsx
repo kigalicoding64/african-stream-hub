@@ -36,7 +36,7 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "IBONA — Agasobanuye, Film Nyarwanda, Amakuru & African Music" },
       { name: "description", content: "IBONA (formerly Rebalive) — the #1 African-first streaming platform for agasobanuye, film nyarwanda, news shorts, comedy, and African music. Watch in Kinyarwanda, English, Swahili, and French. Free to stream and upload." },
-      { name: "keywords", content: "ibona, rebalive, agasobanuye, film nyarwanda, amakuru, news shorts, best Rwandan movie, Rwanda video platform, African music, Kinyarwanda films, comedy nyarwanda, gospel nyarwanda, ibitaramo, streaming Rwanda" },
+      { name: "keywords", content: IBONA_KEYWORDS },
       { name: "author", content: "IBONA" },
       { name: "robots", content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" },
       { name: "google-site-verification", content: "" },
