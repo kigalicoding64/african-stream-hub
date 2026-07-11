@@ -9,37 +9,144 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import type { Video } from "@/data/videos";
 
+interface CreatorLoaderVideo {
+  id: string;
+  title: string;
+  thumbnail_url: string | null;
+  ai_thumbnail_url: string | null;
+  description: string | null;
+  created_at: string | null;
+  views: number | null;
+  language: string | null;
+}
+interface CreatorLoaderProfile {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+}
+
+async function loadCreatorForHead(username: string): Promise<{ profile: CreatorLoaderProfile | null; videos: CreatorLoaderVideo[] }> {
+  const base = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_SUPABASE_URL;
+  const key = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!base || !key) return { profile: null, videos: [] };
+  try {
+    const pRes = await fetch(
+      `${base}/rest/v1/profiles?select=id,username,display_name,avatar_url,bio&username=eq.${encodeURIComponent(username)}&limit=1`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    const pRows = pRes.ok ? ((await pRes.json()) as CreatorLoaderProfile[]) : [];
+    const profile = pRows[0] ?? null;
+    if (!profile) return { profile: null, videos: [] };
+    const vRes = await fetch(
+      `${base}/rest/v1/videos?select=id,title,thumbnail_url,ai_thumbnail_url,description,created_at,views,language&owner_id=eq.${profile.id}&visibility=eq.public&status=eq.ready&order=created_at.desc&limit=24`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    const videos = vRes.ok ? ((await vRes.json()) as CreatorLoaderVideo[]) : [];
+    return { profile, videos };
+  } catch {
+    return { profile: null, videos: [] };
+  }
+}
+
 export const Route = createFileRoute("/c/$username")({
-  head: ({ params }) => {
+  loader: ({ params }) => loadCreatorForHead(params.username),
+  head: ({ params, loaderData }) => {
     const url = `https://rebalive.egreedtech.org/c/${params.username}`;
-    const title = `@${params.username} — Creator on IBONA`;
-    const desc = `Watch videos from @${params.username} on IBONA — African-first streaming for agasobanuye, film nyarwanda, music and shorts. Follow to see new uploads.`;
+    const profile = loaderData?.profile;
+    const videos = loaderData?.videos ?? [];
+    const name = profile?.display_name || `@${params.username}`;
+    const title = `${name} — Creator on IBONA`;
+    const desc = (profile?.bio ||
+      `Watch ${videos.length || ""} videos from ${name} on IBONA — African-first streaming for agasobanuye, film nyarwanda, music and shorts.`).slice(0, 300);
+    const img = profile?.avatar_url || undefined;
+
+    const person = {
+      "@context": "https://schema.org",
+      "@type": "Person",
+      name,
+      alternateName: params.username,
+      url,
+      ...(img ? { image: img } : {}),
+      ...(profile?.bio ? { description: profile.bio } : {}),
+      mainEntityOfPage: url,
+    };
+
+    const profilePage = {
+      "@context": "https://schema.org",
+      "@type": "ProfilePage",
+      url,
+      name: title,
+      description: desc,
+      mainEntity: person,
+      isPartOf: { "@type": "WebSite", name: "IBONA", url: "https://rebalive.egreedtech.org" },
+    };
+
+    const itemList = videos.length
+      ? {
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          name: `Videos by ${name}`,
+          numberOfItems: videos.length,
+          itemListElement: videos.slice(0, 24).map((v, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            item: {
+              "@type": "VideoObject",
+              name: v.title,
+              description: (v.description || v.title).slice(0, 300),
+              thumbnailUrl: [v.ai_thumbnail_url || v.thumbnail_url].filter(Boolean),
+              uploadDate: v.created_at || new Date().toISOString(),
+              contentUrl: `https://rebalive.egreedtech.org/watch/${v.id}`,
+              embedUrl: `https://rebalive.egreedtech.org/watch/${v.id}`,
+              inLanguage: v.language || "rw",
+              author: person,
+              publisher: {
+                "@type": "Organization",
+                name: "IBONA",
+                url: "https://rebalive.egreedtech.org",
+              },
+              interactionStatistic: {
+                "@type": "InteractionCounter",
+                interactionType: { "@type": "http://schema.org/WatchAction" },
+                userInteractionCount: v.views || 0,
+              },
+            },
+          })),
+        }
+      : null;
+
+    const breadcrumbs = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "IBONA", item: "https://rebalive.egreedtech.org" },
+        { "@type": "ListItem", position: 2, name: "Creators", item: "https://rebalive.egreedtech.org/search?q=creator" },
+        { "@type": "ListItem", position: 3, name, item: url },
+      ],
+    };
+
     return {
       meta: [
         { title },
-        { name: "description", content: desc },
+        { name: "description", content: desc.slice(0, 160) },
         { property: "og:title", content: title },
-        { property: "og:description", content: desc },
+        { property: "og:description", content: desc.slice(0, 160) },
         { property: "og:type", content: "profile" },
         { property: "og:url", content: url },
         { property: "profile:username", content: params.username },
+        ...(img ? [{ property: "og:image", content: img }, { name: "twitter:image", content: img }] : []),
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: desc.slice(0, 160) },
       ],
       links: [{ rel: "canonical", href: url }],
-      scripts: [{
-        type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "ProfilePage",
-          url,
-          mainEntity: {
-            "@type": "Person",
-            name: `@${params.username}`,
-            alternateName: params.username,
-            url,
-          },
-          isPartOf: { "@type": "WebSite", name: "IBONA", url: "https://rebalive.egreedtech.org" },
-        }),
-      }],
+      scripts: [
+        { type: "application/ld+json", children: JSON.stringify(profilePage) },
+        ...(itemList ? [{ type: "application/ld+json", children: JSON.stringify(itemList) }] : []),
+        { type: "application/ld+json", children: JSON.stringify(breadcrumbs) },
+      ],
     };
   },
   component: CreatorPage,
