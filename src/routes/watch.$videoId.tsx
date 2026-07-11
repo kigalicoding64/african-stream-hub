@@ -986,7 +986,7 @@ function WatchPage() {
       </div>
 
       {/* Floating mini player */}
-      {showMini && (
+      {showMini && !isIframe && !isUnsupported && (
         <div className="fixed bottom-20 lg:bottom-6 right-4 z-40 w-72 animate-scale-in rounded-xl overflow-hidden ring-1 ring-border shadow-[var(--shadow-elegant)] bg-black">
           <div className="relative aspect-video group">
             <video
