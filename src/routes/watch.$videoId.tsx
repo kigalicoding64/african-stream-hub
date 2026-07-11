@@ -572,34 +572,68 @@ function WatchPage() {
                 </div>
               </>
             )}
-            <video
-              ref={videoRef}
-              src={video.previewSrc}
-              poster={video.thumbnail}
-              autoPlay={!shouldReducePreviews}
-              loop
-              playsInline
-              preload={preload}
-              crossOrigin="anonymous"
-              className={`h-full w-full ${isAudio ? "opacity-0" : "object-cover"}`}
-              onClick={togglePlay}
-              onPlay={() => setPlaying(true)}
-              onPause={() => setPlaying(false)}
-              onLoadedMetadata={handleLoadedMeta}
-              onTimeUpdate={handleTimeUpdate}
-              onVolumeChange={(e) => setMuted((e.target as HTMLVideoElement).muted)}
-            >
-              {!isAudio && ALL_LANGS.map((l) => (
-                <track
-                  key={l}
-                  kind="subtitles"
-                  src={captionByLang[l]}
-                  srcLang={LANG_CODE[l]}
-                  label={l}
-                  default={l === language && subsOn}
-                />
-              ))}
-            </video>
+            {!isAudio && isIframe && (
+              <iframe
+                src={source.src}
+                title={video.title}
+                className="absolute inset-0 h-full w-full"
+                allow={source.allow ?? "autoplay; encrypted-media; fullscreen"}
+                allowFullScreen
+                referrerPolicy="no-referrer"
+                loading="lazy"
+              />
+            )}
+            {!isAudio && isUnsupported && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center bg-black/60 backdrop-blur-sm">
+                <img src={video.thumbnail} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover opacity-30 -z-10" />
+                <div className="text-white">
+                  <div className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">Hosted on {source.provider}</div>
+                  <div className="font-bold text-lg mb-1 line-clamp-2">{video.title}</div>
+                  <p className="text-sm opacity-80 max-w-md">
+                    This video is hosted externally and can't be played inline on IBONA.
+                  </p>
+                </div>
+                <a
+                  href={source.originalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-2.5 text-sm font-bold hover:scale-105 transition"
+                >
+                  <ExternalLink className="h-4 w-4" /> Open on {source.provider}
+                </a>
+              </div>
+            )}
+            {!isIframe && !isUnsupported && (
+              <video
+                ref={videoRef}
+                src={source.kind === "html5" ? source.src : video.previewSrc}
+                poster={video.thumbnail}
+                autoPlay={!shouldReducePreviews}
+                loop
+                playsInline
+                preload={preload}
+                crossOrigin="anonymous"
+                className={`h-full w-full ${isAudio ? "opacity-0" : "object-cover"}`}
+                onClick={togglePlay}
+                onPlay={() => setPlaying(true)}
+                onPause={() => setPlaying(false)}
+                onLoadedMetadata={handleLoadedMeta}
+                onTimeUpdate={handleTimeUpdate}
+                onVolumeChange={(e) => setMuted((e.target as HTMLVideoElement).muted)}
+                onError={() => toast.error("Couldn't load this video source.")}
+              >
+                {!isAudio && ALL_LANGS.map((l) => (
+                  <track
+                    key={l}
+                    kind="subtitles"
+                    src={captionByLang[l]}
+                    srcLang={LANG_CODE[l]}
+                    label={l}
+                    default={l === language && subsOn}
+                  />
+                ))}
+              </video>
+            )}
 
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/70 via-transparent to-black/30 opacity-0 group-hover:opacity-100 transition-opacity" />
 
