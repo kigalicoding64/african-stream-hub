@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Eye, Play } from "lucide-react";
+import { Eye, Play, Star } from "lucide-react";
 import type { Video } from "@/data/videos";
 import { useSettings } from "@/contexts/SettingsContext";
 import { cdnImage } from "@/lib/cdn-image";
@@ -8,6 +8,12 @@ import { cdnImage } from "@/lib/cdn-image";
 interface Props {
   video: Video;
   size?: "default" | "wide";
+}
+
+function isNew(v: Video): boolean {
+  if (!v.createdAt) return false;
+  const days = (Date.now() - new Date(v.createdAt).getTime()) / 86400_000;
+  return days <= 7;
 }
 
 export function VideoCard({ video, size = "default" }: Props) {
@@ -19,7 +25,6 @@ export function VideoCard({ video, size = "default" }: Props) {
   const containerRef = useRef<HTMLAnchorElement>(null);
   const vidRef = useRef<HTMLVideoElement>(null);
 
-  // Lazy mount + viewport-based autoplay (muted preview)
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -27,7 +32,7 @@ export function VideoCard({ video, size = "default" }: Props) {
       ([entry]) => {
         const visible = entry.isIntersecting && entry.intersectionRatio > 0.6;
         setInView(visible);
-        if (shouldReducePreviews) return; // never autoplay in low-data
+        if (shouldReducePreviews) return;
         const v = vidRef.current;
         if (!v) return;
         if (visible) v.play().catch(() => {});
@@ -53,19 +58,25 @@ export function VideoCard({ video, size = "default" }: Props) {
     if (!inView || shouldReducePreviews) vidRef.current?.pause();
   };
   const showVideo = !shouldReducePreviews && (hovered || inView);
-  // In low-data mode, do not even mount the <video> element
   const mountVideo = !shouldReducePreviews && !!video.previewSrc && inView;
+
+  // Route target: prefer typed detail page when we have a slug + movieType
+  const linkProps = video.slug && video.movieType
+    ? { to: `/${video.movieType}/$slug` as const, params: { slug: video.slug } }
+    : { to: "/watch/$videoId" as const, params: { videoId: video.id } };
+
+  const quality = video.quality?.toUpperCase();
+  const newBadge = isNew(video);
 
   return (
     <Link
       ref={containerRef}
-      to="/watch/$videoId"
-      params={{ videoId: video.id }}
+      {...linkProps}
       className={`group block ${size === "wide" ? "w-[340px] sm:w-[380px]" : "w-full"} shrink-0`}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
     >
-      <div className="relative aspect-video overflow-hidden rounded-2xl bg-surface ring-1 ring-border transition-all duration-300 group-hover:ring-primary/50 group-hover:scale-[1.02] group-hover:shadow-[var(--shadow-elegant)]">
+      <div className="relative aspect-video overflow-hidden rounded-2xl bg-surface ring-1 ring-border transition-all duration-300 group-hover:ring-primary/60 group-hover:scale-[1.03] group-hover:shadow-[var(--shadow-elegant)]">
         {!loaded && <div className="absolute inset-0 animate-pulse bg-surface-elevated" />}
         <img
           src={cdnImage(video.thumbnail)}
@@ -75,7 +86,7 @@ export function VideoCard({ video, size = "default" }: Props) {
           width={1024}
           height={576}
           onLoad={() => setLoaded(true)}
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${showVideo ? "opacity-0" : "opacity-100"}`}
+          className={`absolute inset-0 h-full w-full object-cover transition-all duration-500 ${showVideo ? "opacity-0 scale-105" : "opacity-100"}`}
         />
         {mountVideo && (
           <video
@@ -88,25 +99,59 @@ export function VideoCard({ video, size = "default" }: Props) {
             className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${showVideo ? "opacity-100" : "opacity-0"}`}
           />
         )}
-        {/* Gradient overlay */}
         <div className="absolute inset-0 pointer-events-none" style={{ background: "var(--gradient-card)" }} />
 
-        {/* Top tags */}
-        <div className="absolute top-3 left-3 flex gap-2">
+        {/* Top-left badges: category + language + status */}
+        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 max-w-[75%]">
           <span className="rounded-md bg-background/70 backdrop-blur-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-foreground">
             {video.category}
           </span>
+          {video.hasAgasobanuye && (
+            <span className="rounded-md bg-emerald-500/90 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+              Agasobanuye
+            </span>
+          )}
+          {newBadge && (
+            <span className="rounded-md bg-red-500/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-sm">
+              New
+            </span>
+          )}
+          {video.isTrending && (
+            <span className="rounded-md bg-orange-500/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-sm">
+              🔥 Trending
+            </span>
+          )}
+          {video.isEditorsChoice && (
+            <span className="rounded-md bg-purple-500/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-sm">
+              ★ Editor's
+            </span>
+          )}
           {video.visibility === "private" && (
             <span className="rounded-md bg-background/80 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 ring-1 ring-amber-400/40">
               Draft
             </span>
           )}
         </div>
-        <div className="absolute top-3 right-3">
+
+        {/* Top-right: language + quality */}
+        <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
           <span className="rounded-md px-2 py-0.5 text-[10px] font-bold text-primary-foreground" style={{ background: "var(--gradient-brand)" }}>
             {video.language}
           </span>
+          {quality && (
+            <span className="rounded-md bg-background/85 backdrop-blur-md px-1.5 py-0.5 text-[10px] font-black tracking-wide text-foreground ring-1 ring-border">
+              {quality}
+            </span>
+          )}
         </div>
+
+        {/* Bottom-left: IMDb rating */}
+        {typeof video.imdbRating === "number" && video.imdbRating > 0 && (
+          <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-md bg-yellow-400/95 px-1.5 py-0.5 text-[11px] font-black text-black shadow-sm">
+            <Star className="h-3 w-3 fill-current" />
+            {video.imdbRating.toFixed(1)}
+          </div>
+        )}
 
         {/* Duration */}
         <div className="absolute bottom-3 right-3 rounded-md bg-background/80 backdrop-blur-md px-1.5 py-0.5 text-[11px] font-mono font-medium">
@@ -147,6 +192,12 @@ export function VideoCard({ video, size = "default" }: Props) {
             <span>{video.views} views</span>
             <span className="mx-1">•</span>
             <span>{video.uploadedAt}</span>
+            {video.releaseYear && (
+              <>
+                <span className="mx-1">•</span>
+                <span>{video.releaseYear}</span>
+              </>
+            )}
           </div>
         </div>
       </div>
