@@ -21,13 +21,40 @@ export interface Video {
   thumbnail: string;
   previewSrc?: string; // muted mp4 preview
   views: string;
+  viewsRaw?: number;
   duration: string;
+  durationSeconds?: number;
   language: Language;
   category: Category;
   description: string;
   uploadedAt: string;
+  createdAt?: string;
   mediaType?: "video" | "audio";
   visibility?: "public" | "private";
+  // Extended movie/series metadata (all optional; empty on older rows)
+  slug?: string;
+  originalTitle?: string;
+  releaseYear?: number;
+  countryCode?: string;
+  director?: string;
+  cast?: string[];
+  genres?: string[];
+  tags?: string[];
+  imdbRating?: number;
+  imdbId?: string;
+  quality?: string;
+  trailerUrl?: string;
+  posterUrl?: string;
+  backdropUrl?: string;
+  movieType?: "movie" | "series" | "tv" | "anime" | "drama" | "documentary";
+  episodeNumber?: number;
+  seasonNumber?: number;
+  seriesSlug?: string;
+  isFeatured?: boolean;
+  isTrending?: boolean;
+  isTopRated?: boolean;
+  isEditorsChoice?: boolean;
+  hasAgasobanuye?: boolean;
 }
 
 // Royalty-free preview clip (small, public test)

@@ -17,10 +17,35 @@ export interface DbVideo {
   likes: number;
   created_at: string;
   media_type?: "video" | "audio" | null;
+  // Extended metadata columns
+  slug?: string | null;
+  original_title?: string | null;
+  release_year?: number | null;
+  country_code?: string | null;
+  director?: string | null;
+  cast?: string[] | null;
+  genres?: string[] | null;
+  tags?: string[] | null;
+  imdb_rating?: number | null;
+  imdb_id?: string | null;
+  quality?: string | null;
+  trailer_url?: string | null;
+  poster_url?: string | null;
+  backdrop_url?: string | null;
+  movie_type?: "movie" | "series" | "tv" | "anime" | "drama" | "documentary" | null;
+  episode_number?: number | null;
+  season_number?: number | null;
+  series_slug?: string | null;
+  is_featured?: boolean | null;
+  is_trending?: boolean | null;
+  is_top_rated?: boolean | null;
+  is_editors_choice?: boolean | null;
+  has_agasobanuye?: boolean | null;
   profiles?: { display_name: string | null; username: string | null; avatar_url: string | null } | null;
 }
 
 const FALLBACK_THUMB = "/placeholder.svg";
+const SELECT_COLS = "*, profiles!videos_owner_profile_fk(display_name, username, avatar_url)";
 
 function relTime(iso: string): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -53,17 +78,90 @@ export function dbToVideo(v: DbVideo): Video {
     creatorId: v.owner_id,
     creatorUsername: v.profiles?.username ?? undefined,
     creatorAvatar: v.profiles?.avatar_url ?? undefined,
-    thumbnail: v.thumbnail_url || FALLBACK_THUMB,
+    thumbnail: v.poster_url || v.thumbnail_url || FALLBACK_THUMB,
     previewSrc: v.video_url,
     views: formatViews(v.views ?? 0),
+    viewsRaw: v.views ?? 0,
     duration: formatDuration(v.duration_seconds),
+    durationSeconds: v.duration_seconds ?? undefined,
     language: v.language,
     category: v.category,
     description: v.description ?? "",
     uploadedAt: relTime(v.created_at),
+    createdAt: v.created_at,
     mediaType: v.media_type ?? "video",
     visibility: v.visibility === "private" ? "private" : "public",
+    slug: v.slug ?? undefined,
+    originalTitle: v.original_title ?? undefined,
+    releaseYear: v.release_year ?? undefined,
+    countryCode: v.country_code ?? undefined,
+    director: v.director ?? undefined,
+    cast: v.cast ?? undefined,
+    genres: v.genres ?? undefined,
+    tags: v.tags ?? undefined,
+    imdbRating: v.imdb_rating ?? undefined,
+    imdbId: v.imdb_id ?? undefined,
+    quality: v.quality ?? undefined,
+    trailerUrl: v.trailer_url ?? undefined,
+    posterUrl: v.poster_url ?? undefined,
+    backdropUrl: v.backdrop_url ?? undefined,
+    movieType: v.movie_type ?? undefined,
+    episodeNumber: v.episode_number ?? undefined,
+    seasonNumber: v.season_number ?? undefined,
+    seriesSlug: v.series_slug ?? undefined,
+    isFeatured: v.is_featured ?? undefined,
+    isTrending: v.is_trending ?? undefined,
+    isTopRated: v.is_top_rated ?? undefined,
+    isEditorsChoice: v.is_editors_choice ?? undefined,
+    hasAgasobanuye: v.has_agasobanuye ?? undefined,
   };
+}
+
+// ---- New filtered fetchers for category landing pages ----
+
+export async function fetchVideoBySlug(slug: string): Promise<Video | null> {
+  const { data } = await supabase.from("videos").select(SELECT_COLS).eq("slug", slug).eq("visibility", "public").eq("status", "ready").maybeSingle();
+  return data ? dbToVideo(data as unknown as DbVideo) : null;
+}
+
+export async function fetchVideosByGenre(genre: string, limit = 60): Promise<Video[]> {
+  const { data } = await supabase.from("videos").select(SELECT_COLS).contains("genres", [genre]).eq("visibility", "public").eq("status", "ready").order("created_at", { ascending: false }).limit(limit);
+  return ((data as unknown as DbVideo[]) ?? []).map(dbToVideo);
+}
+
+export async function fetchVideosByCountry(code: string, limit = 60): Promise<Video[]> {
+  const { data } = await supabase.from("videos").select(SELECT_COLS).eq("country_code", code).eq("visibility", "public").eq("status", "ready").order("created_at", { ascending: false }).limit(limit);
+  return ((data as unknown as DbVideo[]) ?? []).map(dbToVideo);
+}
+
+export async function fetchVideosByYear(year: number, limit = 60): Promise<Video[]> {
+  const { data } = await supabase.from("videos").select(SELECT_COLS).eq("release_year", year).eq("visibility", "public").eq("status", "ready").order("created_at", { ascending: false }).limit(limit);
+  return ((data as unknown as DbVideo[]) ?? []).map(dbToVideo);
+}
+
+export async function fetchVideosByType(type: string, limit = 60): Promise<Video[]> {
+  const { data } = await supabase.from("videos").select(SELECT_COLS).eq("movie_type", type).eq("visibility", "public").eq("status", "ready").order("created_at", { ascending: false }).limit(limit);
+  return ((data as unknown as DbVideo[]) ?? []).map(dbToVideo);
+}
+
+export async function fetchTopRatedVideos(limit = 12): Promise<Video[]> {
+  const { data } = await supabase.from("videos").select(SELECT_COLS).eq("visibility", "public").eq("status", "ready").order("imdb_rating", { ascending: false, nullsFirst: false }).limit(limit);
+  return ((data as unknown as DbVideo[]) ?? []).map(dbToVideo);
+}
+
+export async function fetchTrendingVideos(limit = 12): Promise<Video[]> {
+  const { data } = await supabase.from("videos").select(SELECT_COLS).eq("visibility", "public").eq("status", "ready").order("views", { ascending: false, nullsFirst: false }).limit(limit);
+  return ((data as unknown as DbVideo[]) ?? []).map(dbToVideo);
+}
+
+export async function fetchRelatedVideos(video: Video, limit = 12): Promise<Video[]> {
+  const q = supabase.from("videos").select(SELECT_COLS).eq("visibility", "public").eq("status", "ready").neq("id", video.id).limit(limit);
+  if (video.genres && video.genres.length) {
+    const { data } = await q.overlaps("genres", video.genres);
+    return ((data as unknown as DbVideo[]) ?? []).map(dbToVideo);
+  }
+  const { data } = await q.eq("category", video.category);
+  return ((data as unknown as DbVideo[]) ?? []).map(dbToVideo);
 }
 
 export async function fetchPublishedVideos(limit = 50): Promise<Video[]> {
