@@ -34,7 +34,7 @@ function Index() {
   const [continueItems, setContinueItems] = useState<ContinueWatchingItem[]>([]);
   const [forYou, setForYou] = useState<Video[]>([]);
   const [topRated, setTopRated] = useState<Video[]>([]);
-  const [trending, setTrending] = useState<Video[]>([]);
+  const [trendingNow, setTrendingNow] = useState<Video[]>([]);
 
   useEffect(() => {
     let cancelled = false;
