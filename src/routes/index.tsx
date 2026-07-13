@@ -72,8 +72,15 @@ function Index() {
     return () => { cancelled = true; };
   }, [user?.id]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchTopRatedVideos(12).then((v) => { if (!cancelled) setTopRated(v); });
+    fetchTrendingVideos(12).then((v) => { if (!cancelled) setTrendingNow(v); });
+    return () => { cancelled = true; };
+  }, []);
+
   const featured = feed[0];
-  const trending = useMemo(() => feed.slice(0, 6), [feed]);
+  const recentlyAdded = useMemo(() => feed.slice(0, 12), [feed]);
   const slides = useMemo(() => feed.slice(0, 6), [feed]);
   const filtered = useMemo(() => {
     if (category === "All") return feed;
@@ -92,7 +99,11 @@ function Index() {
 
         {forYou.length > 0 && <VideoRail title="For you" emoji="✨" videos={forYou} />}
 
-        <VideoRail title="Trending in Rwanda" emoji="🔥" videos={trending} />
+        {trendingNow.length > 0 && <VideoRail title="Trending now" emoji="🔥" videos={trendingNow} />}
+
+        <VideoRail title="Recently added" emoji="🆕" videos={recentlyAdded} />
+
+        {topRated.length > 0 && <VideoRail title="Top rated" emoji="⭐" videos={topRated} />}
 
         <section>
           <div className="flex items-end justify-between mb-4 px-1">
