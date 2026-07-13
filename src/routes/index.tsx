@@ -8,7 +8,7 @@ import { VideoCard } from "@/components/VideoCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { ContinueWatchingRail } from "@/components/ContinueWatchingRail";
 import { isPopularAfrica, type Video } from "@/data/videos";
-import { fetchPrioritizedFeed, fetchContinueWatching, fetchVideoById, type ContinueWatchingItem } from "@/lib/videos-api";
+import { fetchPrioritizedFeed, fetchContinueWatching, fetchVideoById, fetchTopRatedVideos, fetchTrendingVideos, type ContinueWatchingItem } from "@/lib/videos-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { forYouFeed } from "@/lib/recommend.functions";
@@ -33,6 +33,8 @@ function Index() {
   const [feed, setFeed] = useState<Video[]>([]);
   const [continueItems, setContinueItems] = useState<ContinueWatchingItem[]>([]);
   const [forYou, setForYou] = useState<Video[]>([]);
+  const [topRated, setTopRated] = useState<Video[]>([]);
+  const [trending, setTrending] = useState<Video[]>([]);
 
   useEffect(() => {
     let cancelled = false;
