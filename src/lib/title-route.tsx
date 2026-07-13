@@ -1,11 +1,8 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
-import { TitleDetail } from "@/components/TitleDetail";
-import { fetchVideoBySlug } from "@/lib/videos-api";
 import type { Video } from "@/data/videos";
 
 const BASE = "https://rebalive.egreedtech.org";
 
-function toISODuration(sec?: number): string | undefined {
+export function toISODuration(sec?: number): string | undefined {
   if (!sec) return undefined;
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
@@ -13,6 +10,7 @@ function toISODuration(sec?: number): string | undefined {
   return `PT${h ? h + "H" : ""}${m ? m + "M" : ""}${s ? s + "S" : "0S"}`;
 }
 
+/** Build the meta/links/scripts head object for a movie/series/tv/anime/drama/documentary page. */
 export function buildTitleHead(v: Video | null | undefined, kind: string, slug: string) {
   const url = `${BASE}/${kind}/${slug}`;
   if (!v) {
@@ -91,32 +89,4 @@ export function buildTitleHead(v: Video | null | undefined, kind: string, slug: 
       },
     ],
   };
-}
-
-export function makeTitleRoute(path: `/${string}/$slug`, kind: string) {
-  return createFileRoute(path)({
-    loader: async ({ params }) => {
-      const v = await fetchVideoBySlug((params as { slug: string }).slug);
-      if (!v) throw notFound();
-      return { video: v };
-    },
-    head: ({ loaderData, params }) => buildTitleHead(loaderData?.video, kind, (params as { slug: string }).slug),
-    notFoundComponent: () => (
-      <div className="py-20 text-center">
-        <h2 className="text-2xl font-bold mb-2">Title not found</h2>
-        <a href="/" className="text-primary underline">Back home</a>
-      </div>
-    ),
-    errorComponent: ({ error }) => (
-      <div className="py-20 text-center text-muted-foreground">{error.message}</div>
-    ),
-    component: TitleDetailRoute,
-  });
-}
-
-function TitleDetailRoute() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { video } = (arguments as any); // placeholder — real hook below
-  void video;
-  return null;
 }
