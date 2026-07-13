@@ -12,7 +12,12 @@ export const Route = createFileRoute("/sitemap.xml")({
         const children = [
           { loc: `${BASE_URL}/sitemap-pages.xml`, lastmod: now },
           { loc: `${BASE_URL}/sitemap-videos.xml`, lastmod: now },
+          { loc: `${BASE_URL}/sitemap-titles.xml`, lastmod: now },
           { loc: `${BASE_URL}/sitemap-creators.xml`, lastmod: now },
+          { loc: `${BASE_URL}/sitemap-genres.xml`, lastmod: now },
+          { loc: `${BASE_URL}/sitemap-countries.xml`, lastmod: now },
+          { loc: `${BASE_URL}/sitemap-years.xml`, lastmod: now },
+          { loc: `${BASE_URL}/sitemap-images.xml`, lastmod: now },
         ];
         const xml = [
           `<?xml version="1.0" encoding="UTF-8"?>`,
