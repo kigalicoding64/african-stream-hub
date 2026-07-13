@@ -58,6 +58,32 @@ export type Database = {
           },
         ]
       }
+      bookmarks: {
+        Row: {
+          created_at: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookmarks_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comments: {
         Row: {
           body: string
@@ -103,6 +129,32 @@ export type Database = {
           },
           {
             foreignKeyName: "comments_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      favorites: {
+        Row: {
+          created_at: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorites_video_id_fkey"
             columns: ["video_id"]
             isOneToOne: false
             referencedRelation: "videos"
@@ -497,17 +549,38 @@ export type Database = {
       videos: {
         Row: {
           ai_thumbnail_url: string | null
+          backdrop_url: string | null
+          cast: string[] | null
           category: Database["public"]["Enums"]["video_category"]
           country: string | null
+          country_code: string | null
           created_at: string
           description: string | null
+          director: string | null
           duration_seconds: number | null
+          episode_number: number | null
+          genres: string[] | null
+          has_agasobanuye: boolean
           id: string
+          imdb_id: string | null
+          imdb_rating: number | null
+          is_editors_choice: boolean
+          is_featured: boolean
+          is_top_rated: boolean
+          is_trending: boolean
           keywords: string | null
           language: Database["public"]["Enums"]["video_language"]
           likes: number
           media_type: Database["public"]["Enums"]["media_type"]
+          movie_type: string | null
+          original_title: string | null
           owner_id: string
+          poster_url: string | null
+          quality: string | null
+          release_year: number | null
+          season_number: number | null
+          series_slug: string | null
+          slug: string | null
           status: Database["public"]["Enums"]["video_status"]
           tags: string[] | null
           thumbnail_generated_at: string | null
@@ -515,6 +588,7 @@ export type Database = {
           thumbnail_options: Json
           thumbnail_url: string | null
           title: string
+          trailer_url: string | null
           updated_at: string
           video_url: string
           views: number
@@ -522,17 +596,38 @@ export type Database = {
         }
         Insert: {
           ai_thumbnail_url?: string | null
+          backdrop_url?: string | null
+          cast?: string[] | null
           category?: Database["public"]["Enums"]["video_category"]
           country?: string | null
+          country_code?: string | null
           created_at?: string
           description?: string | null
+          director?: string | null
           duration_seconds?: number | null
+          episode_number?: number | null
+          genres?: string[] | null
+          has_agasobanuye?: boolean
           id?: string
+          imdb_id?: string | null
+          imdb_rating?: number | null
+          is_editors_choice?: boolean
+          is_featured?: boolean
+          is_top_rated?: boolean
+          is_trending?: boolean
           keywords?: string | null
           language?: Database["public"]["Enums"]["video_language"]
           likes?: number
           media_type?: Database["public"]["Enums"]["media_type"]
+          movie_type?: string | null
+          original_title?: string | null
           owner_id: string
+          poster_url?: string | null
+          quality?: string | null
+          release_year?: number | null
+          season_number?: number | null
+          series_slug?: string | null
+          slug?: string | null
           status?: Database["public"]["Enums"]["video_status"]
           tags?: string[] | null
           thumbnail_generated_at?: string | null
@@ -540,6 +635,7 @@ export type Database = {
           thumbnail_options?: Json
           thumbnail_url?: string | null
           title: string
+          trailer_url?: string | null
           updated_at?: string
           video_url: string
           views?: number
@@ -547,17 +643,38 @@ export type Database = {
         }
         Update: {
           ai_thumbnail_url?: string | null
+          backdrop_url?: string | null
+          cast?: string[] | null
           category?: Database["public"]["Enums"]["video_category"]
           country?: string | null
+          country_code?: string | null
           created_at?: string
           description?: string | null
+          director?: string | null
           duration_seconds?: number | null
+          episode_number?: number | null
+          genres?: string[] | null
+          has_agasobanuye?: boolean
           id?: string
+          imdb_id?: string | null
+          imdb_rating?: number | null
+          is_editors_choice?: boolean
+          is_featured?: boolean
+          is_top_rated?: boolean
+          is_trending?: boolean
           keywords?: string | null
           language?: Database["public"]["Enums"]["video_language"]
           likes?: number
           media_type?: Database["public"]["Enums"]["media_type"]
+          movie_type?: string | null
+          original_title?: string | null
           owner_id?: string
+          poster_url?: string | null
+          quality?: string | null
+          release_year?: number | null
+          season_number?: number | null
+          series_slug?: string | null
+          slug?: string | null
           status?: Database["public"]["Enums"]["video_status"]
           tags?: string[] | null
           thumbnail_generated_at?: string | null
@@ -565,6 +682,7 @@ export type Database = {
           thumbnail_options?: Json
           thumbnail_url?: string | null
           title?: string
+          trailer_url?: string | null
           updated_at?: string
           video_url?: string
           views?: number
@@ -611,6 +729,7 @@ export type Database = {
           video_id: string
         }[]
       }
+      slugify: { Args: { _text: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "creator" | "user"
