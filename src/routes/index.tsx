@@ -8,7 +8,7 @@ import { VideoCard } from "@/components/VideoCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { ContinueWatchingRail } from "@/components/ContinueWatchingRail";
 import { isPopularAfrica, type Video } from "@/data/videos";
-import { fetchPrioritizedFeed, fetchContinueWatching, fetchVideoById, type ContinueWatchingItem } from "@/lib/videos-api";
+import { fetchPrioritizedFeed, fetchContinueWatching, fetchVideoById, fetchTopRatedVideos, fetchTrendingVideos, type ContinueWatchingItem } from "@/lib/videos-api";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { forYouFeed } from "@/lib/recommend.functions";
@@ -33,6 +33,8 @@ function Index() {
   const [feed, setFeed] = useState<Video[]>([]);
   const [continueItems, setContinueItems] = useState<ContinueWatchingItem[]>([]);
   const [forYou, setForYou] = useState<Video[]>([]);
+  const [topRated, setTopRated] = useState<Video[]>([]);
+  const [trendingNow, setTrendingNow] = useState<Video[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,8 +72,15 @@ function Index() {
     return () => { cancelled = true; };
   }, [user?.id]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchTopRatedVideos(12).then((v) => { if (!cancelled) setTopRated(v); });
+    fetchTrendingVideos(12).then((v) => { if (!cancelled) setTrendingNow(v); });
+    return () => { cancelled = true; };
+  }, []);
+
   const featured = feed[0];
-  const trending = useMemo(() => feed.slice(0, 6), [feed]);
+  const recentlyAdded = useMemo(() => feed.slice(0, 12), [feed]);
   const slides = useMemo(() => feed.slice(0, 6), [feed]);
   const filtered = useMemo(() => {
     if (category === "All") return feed;
@@ -90,7 +99,11 @@ function Index() {
 
         {forYou.length > 0 && <VideoRail title="For you" emoji="✨" videos={forYou} />}
 
-        <VideoRail title="Trending in Rwanda" emoji="🔥" videos={trending} />
+        {trendingNow.length > 0 && <VideoRail title="Trending now" emoji="🔥" videos={trendingNow} />}
+
+        <VideoRail title="Recently added" emoji="🆕" videos={recentlyAdded} />
+
+        {topRated.length > 0 && <VideoRail title="Top rated" emoji="⭐" videos={topRated} />}
 
         <section>
           <div className="flex items-end justify-between mb-4 px-1">

@@ -13,9 +13,14 @@ import { Route as UploadRouteImport } from './routes/upload'
 import { Route as TrendingRouteImport } from './routes/trending'
 import { Route as StudioRouteImport } from './routes/studio'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SitemapYearsDotxmlRouteImport } from './routes/sitemap-years[.]xml'
 import { Route as SitemapVideosDotxmlRouteImport } from './routes/sitemap-videos[.]xml'
+import { Route as SitemapTitlesDotxmlRouteImport } from './routes/sitemap-titles[.]xml'
 import { Route as SitemapPagesDotxmlRouteImport } from './routes/sitemap-pages[.]xml'
+import { Route as SitemapImagesDotxmlRouteImport } from './routes/sitemap-images[.]xml'
+import { Route as SitemapGenresDotxmlRouteImport } from './routes/sitemap-genres[.]xml'
 import { Route as SitemapCreatorsDotxmlRouteImport } from './routes/sitemap-creators[.]xml'
+import { Route as SitemapCountriesDotxmlRouteImport } from './routes/sitemap-countries[.]xml'
 import { Route as ShortsRouteImport } from './routes/shorts'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
@@ -26,9 +31,18 @@ import { Route as MoviesRouteImport } from './routes/movies'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as YearYearRouteImport } from './routes/year.$year'
 import { Route as WatchVideoIdRouteImport } from './routes/watch.$videoId'
+import { Route as TvSlugRouteImport } from './routes/tv.$slug'
+import { Route as SeriesSlugRouteImport } from './routes/series.$slug'
+import { Route as MovieSlugRouteImport } from './routes/movie.$slug'
 import { Route as ImgSplatRouteImport } from './routes/img.$'
+import { Route as GenreGenreRouteImport } from './routes/genre.$genre'
+import { Route as DramaSlugRouteImport } from './routes/drama.$slug'
+import { Route as DocumentarySlugRouteImport } from './routes/documentary.$slug'
+import { Route as CountryCountryRouteImport } from './routes/country.$country'
 import { Route as CUsernameRouteImport } from './routes/c.$username'
+import { Route as AnimeSlugRouteImport } from './routes/anime.$slug'
 
 const UploadRoute = UploadRouteImport.update({
   id: '/upload',
@@ -50,9 +64,19 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapYearsDotxmlRoute = SitemapYearsDotxmlRouteImport.update({
+  id: '/sitemap-years.xml',
+  path: '/sitemap-years.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapVideosDotxmlRoute = SitemapVideosDotxmlRouteImport.update({
   id: '/sitemap-videos.xml',
   path: '/sitemap-videos.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapTitlesDotxmlRoute = SitemapTitlesDotxmlRouteImport.update({
+  id: '/sitemap-titles.xml',
+  path: '/sitemap-titles.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapPagesDotxmlRoute = SitemapPagesDotxmlRouteImport.update({
@@ -60,9 +84,24 @@ const SitemapPagesDotxmlRoute = SitemapPagesDotxmlRouteImport.update({
   path: '/sitemap-pages.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapImagesDotxmlRoute = SitemapImagesDotxmlRouteImport.update({
+  id: '/sitemap-images.xml',
+  path: '/sitemap-images.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapGenresDotxmlRoute = SitemapGenresDotxmlRouteImport.update({
+  id: '/sitemap-genres.xml',
+  path: '/sitemap-genres.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapCreatorsDotxmlRoute = SitemapCreatorsDotxmlRouteImport.update({
   id: '/sitemap-creators.xml',
   path: '/sitemap-creators.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapCountriesDotxmlRoute = SitemapCountriesDotxmlRouteImport.update({
+  id: '/sitemap-countries.xml',
+  path: '/sitemap-countries.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShortsRoute = ShortsRouteImport.update({
@@ -115,9 +154,29 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const YearYearRoute = YearYearRouteImport.update({
+  id: '/year/$year',
+  path: '/year/$year',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WatchVideoIdRoute = WatchVideoIdRouteImport.update({
   id: '/watch/$videoId',
   path: '/watch/$videoId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TvSlugRoute = TvSlugRouteImport.update({
+  id: '/tv/$slug',
+  path: '/tv/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SeriesSlugRoute = SeriesSlugRouteImport.update({
+  id: '/series/$slug',
+  path: '/series/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MovieSlugRoute = MovieSlugRouteImport.update({
+  id: '/movie/$slug',
+  path: '/movie/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ImgSplatRoute = ImgSplatRouteImport.update({
@@ -125,9 +184,34 @@ const ImgSplatRoute = ImgSplatRouteImport.update({
   path: '/img/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GenreGenreRoute = GenreGenreRouteImport.update({
+  id: '/genre/$genre',
+  path: '/genre/$genre',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DramaSlugRoute = DramaSlugRouteImport.update({
+  id: '/drama/$slug',
+  path: '/drama/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentarySlugRoute = DocumentarySlugRouteImport.update({
+  id: '/documentary/$slug',
+  path: '/documentary/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CountryCountryRoute = CountryCountryRouteImport.update({
+  id: '/country/$country',
+  path: '/country/$country',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CUsernameRoute = CUsernameRouteImport.update({
   id: '/c/$username',
   path: '/c/$username',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnimeSlugRoute = AnimeSlugRouteImport.update({
+  id: '/anime/$slug',
+  path: '/anime/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -142,16 +226,30 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
+  '/sitemap-countries.xml': typeof SitemapCountriesDotxmlRoute
   '/sitemap-creators.xml': typeof SitemapCreatorsDotxmlRoute
+  '/sitemap-genres.xml': typeof SitemapGenresDotxmlRoute
+  '/sitemap-images.xml': typeof SitemapImagesDotxmlRoute
   '/sitemap-pages.xml': typeof SitemapPagesDotxmlRoute
+  '/sitemap-titles.xml': typeof SitemapTitlesDotxmlRoute
   '/sitemap-videos.xml': typeof SitemapVideosDotxmlRoute
+  '/sitemap-years.xml': typeof SitemapYearsDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
+  '/anime/$slug': typeof AnimeSlugRoute
   '/c/$username': typeof CUsernameRoute
+  '/country/$country': typeof CountryCountryRoute
+  '/documentary/$slug': typeof DocumentarySlugRoute
+  '/drama/$slug': typeof DramaSlugRoute
+  '/genre/$genre': typeof GenreGenreRoute
   '/img/$': typeof ImgSplatRoute
+  '/movie/$slug': typeof MovieSlugRoute
+  '/series/$slug': typeof SeriesSlugRoute
+  '/tv/$slug': typeof TvSlugRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
+  '/year/$year': typeof YearYearRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -164,16 +262,30 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
+  '/sitemap-countries.xml': typeof SitemapCountriesDotxmlRoute
   '/sitemap-creators.xml': typeof SitemapCreatorsDotxmlRoute
+  '/sitemap-genres.xml': typeof SitemapGenresDotxmlRoute
+  '/sitemap-images.xml': typeof SitemapImagesDotxmlRoute
   '/sitemap-pages.xml': typeof SitemapPagesDotxmlRoute
+  '/sitemap-titles.xml': typeof SitemapTitlesDotxmlRoute
   '/sitemap-videos.xml': typeof SitemapVideosDotxmlRoute
+  '/sitemap-years.xml': typeof SitemapYearsDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
+  '/anime/$slug': typeof AnimeSlugRoute
   '/c/$username': typeof CUsernameRoute
+  '/country/$country': typeof CountryCountryRoute
+  '/documentary/$slug': typeof DocumentarySlugRoute
+  '/drama/$slug': typeof DramaSlugRoute
+  '/genre/$genre': typeof GenreGenreRoute
   '/img/$': typeof ImgSplatRoute
+  '/movie/$slug': typeof MovieSlugRoute
+  '/series/$slug': typeof SeriesSlugRoute
+  '/tv/$slug': typeof TvSlugRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
+  '/year/$year': typeof YearYearRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -187,16 +299,30 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/shorts': typeof ShortsRoute
+  '/sitemap-countries.xml': typeof SitemapCountriesDotxmlRoute
   '/sitemap-creators.xml': typeof SitemapCreatorsDotxmlRoute
+  '/sitemap-genres.xml': typeof SitemapGenresDotxmlRoute
+  '/sitemap-images.xml': typeof SitemapImagesDotxmlRoute
   '/sitemap-pages.xml': typeof SitemapPagesDotxmlRoute
+  '/sitemap-titles.xml': typeof SitemapTitlesDotxmlRoute
   '/sitemap-videos.xml': typeof SitemapVideosDotxmlRoute
+  '/sitemap-years.xml': typeof SitemapYearsDotxmlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/studio': typeof StudioRoute
   '/trending': typeof TrendingRoute
   '/upload': typeof UploadRoute
+  '/anime/$slug': typeof AnimeSlugRoute
   '/c/$username': typeof CUsernameRoute
+  '/country/$country': typeof CountryCountryRoute
+  '/documentary/$slug': typeof DocumentarySlugRoute
+  '/drama/$slug': typeof DramaSlugRoute
+  '/genre/$genre': typeof GenreGenreRoute
   '/img/$': typeof ImgSplatRoute
+  '/movie/$slug': typeof MovieSlugRoute
+  '/series/$slug': typeof SeriesSlugRoute
+  '/tv/$slug': typeof TvSlugRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
+  '/year/$year': typeof YearYearRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -211,16 +337,30 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/shorts'
+    | '/sitemap-countries.xml'
     | '/sitemap-creators.xml'
+    | '/sitemap-genres.xml'
+    | '/sitemap-images.xml'
     | '/sitemap-pages.xml'
+    | '/sitemap-titles.xml'
     | '/sitemap-videos.xml'
+    | '/sitemap-years.xml'
     | '/sitemap.xml'
     | '/studio'
     | '/trending'
     | '/upload'
+    | '/anime/$slug'
     | '/c/$username'
+    | '/country/$country'
+    | '/documentary/$slug'
+    | '/drama/$slug'
+    | '/genre/$genre'
     | '/img/$'
+    | '/movie/$slug'
+    | '/series/$slug'
+    | '/tv/$slug'
     | '/watch/$videoId'
+    | '/year/$year'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -233,16 +373,30 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/shorts'
+    | '/sitemap-countries.xml'
     | '/sitemap-creators.xml'
+    | '/sitemap-genres.xml'
+    | '/sitemap-images.xml'
     | '/sitemap-pages.xml'
+    | '/sitemap-titles.xml'
     | '/sitemap-videos.xml'
+    | '/sitemap-years.xml'
     | '/sitemap.xml'
     | '/studio'
     | '/trending'
     | '/upload'
+    | '/anime/$slug'
     | '/c/$username'
+    | '/country/$country'
+    | '/documentary/$slug'
+    | '/drama/$slug'
+    | '/genre/$genre'
     | '/img/$'
+    | '/movie/$slug'
+    | '/series/$slug'
+    | '/tv/$slug'
     | '/watch/$videoId'
+    | '/year/$year'
   id:
     | '__root__'
     | '/'
@@ -255,16 +409,30 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/shorts'
+    | '/sitemap-countries.xml'
     | '/sitemap-creators.xml'
+    | '/sitemap-genres.xml'
+    | '/sitemap-images.xml'
     | '/sitemap-pages.xml'
+    | '/sitemap-titles.xml'
     | '/sitemap-videos.xml'
+    | '/sitemap-years.xml'
     | '/sitemap.xml'
     | '/studio'
     | '/trending'
     | '/upload'
+    | '/anime/$slug'
     | '/c/$username'
+    | '/country/$country'
+    | '/documentary/$slug'
+    | '/drama/$slug'
+    | '/genre/$genre'
     | '/img/$'
+    | '/movie/$slug'
+    | '/series/$slug'
+    | '/tv/$slug'
     | '/watch/$videoId'
+    | '/year/$year'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -278,16 +446,30 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   ShortsRoute: typeof ShortsRoute
+  SitemapCountriesDotxmlRoute: typeof SitemapCountriesDotxmlRoute
   SitemapCreatorsDotxmlRoute: typeof SitemapCreatorsDotxmlRoute
+  SitemapGenresDotxmlRoute: typeof SitemapGenresDotxmlRoute
+  SitemapImagesDotxmlRoute: typeof SitemapImagesDotxmlRoute
   SitemapPagesDotxmlRoute: typeof SitemapPagesDotxmlRoute
+  SitemapTitlesDotxmlRoute: typeof SitemapTitlesDotxmlRoute
   SitemapVideosDotxmlRoute: typeof SitemapVideosDotxmlRoute
+  SitemapYearsDotxmlRoute: typeof SitemapYearsDotxmlRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StudioRoute: typeof StudioRoute
   TrendingRoute: typeof TrendingRoute
   UploadRoute: typeof UploadRoute
+  AnimeSlugRoute: typeof AnimeSlugRoute
   CUsernameRoute: typeof CUsernameRoute
+  CountryCountryRoute: typeof CountryCountryRoute
+  DocumentarySlugRoute: typeof DocumentarySlugRoute
+  DramaSlugRoute: typeof DramaSlugRoute
+  GenreGenreRoute: typeof GenreGenreRoute
   ImgSplatRoute: typeof ImgSplatRoute
+  MovieSlugRoute: typeof MovieSlugRoute
+  SeriesSlugRoute: typeof SeriesSlugRoute
+  TvSlugRoute: typeof TvSlugRoute
   WatchVideoIdRoute: typeof WatchVideoIdRoute
+  YearYearRoute: typeof YearYearRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -320,11 +502,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap-years.xml': {
+      id: '/sitemap-years.xml'
+      path: '/sitemap-years.xml'
+      fullPath: '/sitemap-years.xml'
+      preLoaderRoute: typeof SitemapYearsDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap-videos.xml': {
       id: '/sitemap-videos.xml'
       path: '/sitemap-videos.xml'
       fullPath: '/sitemap-videos.xml'
       preLoaderRoute: typeof SitemapVideosDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap-titles.xml': {
+      id: '/sitemap-titles.xml'
+      path: '/sitemap-titles.xml'
+      fullPath: '/sitemap-titles.xml'
+      preLoaderRoute: typeof SitemapTitlesDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap-pages.xml': {
@@ -334,11 +530,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapPagesDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap-images.xml': {
+      id: '/sitemap-images.xml'
+      path: '/sitemap-images.xml'
+      fullPath: '/sitemap-images.xml'
+      preLoaderRoute: typeof SitemapImagesDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap-genres.xml': {
+      id: '/sitemap-genres.xml'
+      path: '/sitemap-genres.xml'
+      fullPath: '/sitemap-genres.xml'
+      preLoaderRoute: typeof SitemapGenresDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap-creators.xml': {
       id: '/sitemap-creators.xml'
       path: '/sitemap-creators.xml'
       fullPath: '/sitemap-creators.xml'
       preLoaderRoute: typeof SitemapCreatorsDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap-countries.xml': {
+      id: '/sitemap-countries.xml'
+      path: '/sitemap-countries.xml'
+      fullPath: '/sitemap-countries.xml'
+      preLoaderRoute: typeof SitemapCountriesDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shorts': {
@@ -411,11 +628,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/year/$year': {
+      id: '/year/$year'
+      path: '/year/$year'
+      fullPath: '/year/$year'
+      preLoaderRoute: typeof YearYearRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/watch/$videoId': {
       id: '/watch/$videoId'
       path: '/watch/$videoId'
       fullPath: '/watch/$videoId'
       preLoaderRoute: typeof WatchVideoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tv/$slug': {
+      id: '/tv/$slug'
+      path: '/tv/$slug'
+      fullPath: '/tv/$slug'
+      preLoaderRoute: typeof TvSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/series/$slug': {
+      id: '/series/$slug'
+      path: '/series/$slug'
+      fullPath: '/series/$slug'
+      preLoaderRoute: typeof SeriesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/movie/$slug': {
+      id: '/movie/$slug'
+      path: '/movie/$slug'
+      fullPath: '/movie/$slug'
+      preLoaderRoute: typeof MovieSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/img/$': {
@@ -425,11 +670,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImgSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/genre/$genre': {
+      id: '/genre/$genre'
+      path: '/genre/$genre'
+      fullPath: '/genre/$genre'
+      preLoaderRoute: typeof GenreGenreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/drama/$slug': {
+      id: '/drama/$slug'
+      path: '/drama/$slug'
+      fullPath: '/drama/$slug'
+      preLoaderRoute: typeof DramaSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documentary/$slug': {
+      id: '/documentary/$slug'
+      path: '/documentary/$slug'
+      fullPath: '/documentary/$slug'
+      preLoaderRoute: typeof DocumentarySlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/country/$country': {
+      id: '/country/$country'
+      path: '/country/$country'
+      fullPath: '/country/$country'
+      preLoaderRoute: typeof CountryCountryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/c/$username': {
       id: '/c/$username'
       path: '/c/$username'
       fullPath: '/c/$username'
       preLoaderRoute: typeof CUsernameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/anime/$slug': {
+      id: '/anime/$slug'
+      path: '/anime/$slug'
+      fullPath: '/anime/$slug'
+      preLoaderRoute: typeof AnimeSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -446,27 +726,31 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   ShortsRoute: ShortsRoute,
+  SitemapCountriesDotxmlRoute: SitemapCountriesDotxmlRoute,
   SitemapCreatorsDotxmlRoute: SitemapCreatorsDotxmlRoute,
+  SitemapGenresDotxmlRoute: SitemapGenresDotxmlRoute,
+  SitemapImagesDotxmlRoute: SitemapImagesDotxmlRoute,
   SitemapPagesDotxmlRoute: SitemapPagesDotxmlRoute,
+  SitemapTitlesDotxmlRoute: SitemapTitlesDotxmlRoute,
   SitemapVideosDotxmlRoute: SitemapVideosDotxmlRoute,
+  SitemapYearsDotxmlRoute: SitemapYearsDotxmlRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StudioRoute: StudioRoute,
   TrendingRoute: TrendingRoute,
   UploadRoute: UploadRoute,
+  AnimeSlugRoute: AnimeSlugRoute,
   CUsernameRoute: CUsernameRoute,
+  CountryCountryRoute: CountryCountryRoute,
+  DocumentarySlugRoute: DocumentarySlugRoute,
+  DramaSlugRoute: DramaSlugRoute,
+  GenreGenreRoute: GenreGenreRoute,
   ImgSplatRoute: ImgSplatRoute,
+  MovieSlugRoute: MovieSlugRoute,
+  SeriesSlugRoute: SeriesSlugRoute,
+  TvSlugRoute: TvSlugRoute,
   WatchVideoIdRoute: WatchVideoIdRoute,
+  YearYearRoute: YearYearRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
