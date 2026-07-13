@@ -61,9 +61,20 @@ export function VideoCard({ video, size = "default" }: Props) {
   const mountVideo = !shouldReducePreviews && !!video.previewSrc && inView;
 
   // Route target: prefer typed detail page when we have a slug + movieType
-  const linkProps = video.slug && video.movieType
-    ? { to: `/${video.movieType}/$slug` as const, params: { slug: video.slug } }
-    : { to: "/watch/$videoId" as const, params: { videoId: video.id } };
+  const typedLink = (() => {
+    if (!video.slug || !video.movieType) return null;
+    const s = video.slug;
+    switch (video.movieType) {
+      case "movie": return { to: "/movie/$slug" as const, params: { slug: s } };
+      case "series": return { to: "/series/$slug" as const, params: { slug: s } };
+      case "tv": return { to: "/tv/$slug" as const, params: { slug: s } };
+      case "anime": return { to: "/anime/$slug" as const, params: { slug: s } };
+      case "drama": return { to: "/drama/$slug" as const, params: { slug: s } };
+      case "documentary": return { to: "/documentary/$slug" as const, params: { slug: s } };
+      default: return null;
+    }
+  })();
+  const linkProps = typedLink ?? { to: "/watch/$videoId" as const, params: { videoId: video.id } };
 
   const quality = video.quality?.toUpperCase();
   const newBadge = isNew(video);
