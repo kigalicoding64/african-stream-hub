@@ -1,4 +1,5 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+import { notifySitemapUpdated } from "@/lib/sitemap.functions";
 import { useEffect, useState } from "react";
 import { useRef } from "react";
 import { Upload as UploadIcon, Eye, Heart, Trash2, Edit3, Loader2, Film, X, Check, BarChart3, Users, MessageCircle, Sparkles, RefreshCw, Copy, Languages, FileText, Image as ImageIcon, Star } from "lucide-react";
@@ -342,6 +343,7 @@ function EditModal({ row, onClose, onSaved }: { row: Row; onClose: () => void; o
   const save = async () => {
     setSaving(true);
     const { error } = await supabase.from("videos").update({ title: title.trim(), description, language, category, visibility }).eq("id", row.id);
+    if (!error && visibility === "public") void notifySitemapUpdated().catch(() => {});
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Saved");

@@ -382,3 +382,89 @@ export async function fetchVideosByOwner(ownerId: string): Promise<Video[]> {
   if (error || !data) return [];
   return (data as unknown as DbVideo[]).map(dbToVideo);
 }
+
+// ---- Advanced search (Netflix-style filters) ----
+
+export interface AdvancedSearchFilters {
+  q?: string;
+  actor?: string;
+  director?: string;
+  genre?: string;
+  country?: string;
+  year?: number;
+  language?: string;
+  subtitles?: string;
+  agasobanuye?: boolean;
+  minRating?: number;
+  duration?: "short" | "medium" | "long" | "";
+  quality?: string;
+  collection?: "featured" | "trending" | "top_rated" | "editors_choice" | "";
+  sort?: "newest" | "popular" | "rating" | "title" | "duration";
+  limit?: number;
+}
+
+const sel = (s: string): string => s;
+
+/** Runs a multi-facet filtered query against public, ready videos. */
+export async function fetchAdvancedSearch(f: AdvancedSearchFilters): Promise<Video[]> {
+  const like = (v: string) => `%${v.trim().replace(/[%_]/g, (m) => "\\" + m)}%`;
+
+  let query = supabase
+    .from("videos")
+    .select(sel("*, profiles!videos_owner_profile_fk(display_name, username, avatar_url)"))
+    .eq("visibility", "public")
+    .eq("status", "ready");
+
+  if (f.q?.trim()) {
+    const l = like(f.q);
+    query = query.or(`title.ilike.${l},original_title.ilike.${l},description.ilike.${l},director.ilike.${l}`);
+  }
+  if (f.actor?.trim()) query = query.contains("cast", [f.actor.trim()]);
+  if (f.director?.trim()) query = query.ilike("director", like(f.director));
+  if (f.genre) query = query.contains("genres", [f.genre]);
+  if (f.country) query = query.eq("country_code", f.country);
+  if (f.year) query = query.eq("release_year", f.year);
+  if (f.language) query = query.eq("language", f.language as "Kinyarwanda" | "Swahili" | "English");
+  if (f.agasobanuye) query = query.eq("has_agasobanuye", true);
+  if (typeof f.minRating === "number" && f.minRating > 0) query = query.gte("imdb_rating", f.minRating);
+  if (f.quality) query = query.eq("quality", f.quality);
+  if (f.collection === "featured") query = query.eq("is_featured", true);
+  if (f.collection === "trending") query = query.eq("is_trending", true);
+  if (f.collection === "top_rated") query = query.eq("is_top_rated", true);
+  if (f.collection === "editors_choice") query = query.eq("is_editors_choice", true);
+
+  if (f.duration === "short") query = query.lt("duration_seconds", 300);
+  if (f.duration === "medium") query = query.gte("duration_seconds", 300).lt("duration_seconds", 2400);
+  if (f.duration === "long") query = query.gte("duration_seconds", 2400);
+
+  if (f.subtitles) {
+    const { data: caps } = await supabase
+      .from("video_captions")
+      .select("video_id")
+      .eq("language", f.subtitles)
+      .limit(2000);
+    const ids = (caps ?? []).map((c) => c.video_id as string);
+    if (ids.length === 0) return [];
+    query = query.in("id", ids);
+  }
+
+  switch (f.sort) {
+    case "popular":
+      query = query.order("views", { ascending: false, nullsFirst: false });
+      break;
+    case "rating":
+      query = query.order("imdb_rating", { ascending: false, nullsFirst: false });
+      break;
+    case "title":
+      query = query.order("title", { ascending: true });
+      break;
+    case "duration":
+      query = query.order("duration_seconds", { ascending: false, nullsFirst: false });
+      break;
+    default:
+      query = query.order("created_at", { ascending: false });
+  }
+
+  const { data } = await query.limit(f.limit ?? 120).returns<DbVideo[]>();
+  return (data ?? []).map(dbToVideo);
+}

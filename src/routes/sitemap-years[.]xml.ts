@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
+import { latestContentLastmod } from "@/lib/sitemap-freshness.server";
 import { recentYears } from "@/lib/taxonomy";
 
 const BASE_URL = "https://rebalive.egreedtech.org";
@@ -8,10 +9,10 @@ export const Route = createFileRoute("/sitemap-years.xml")({
   server: {
     handlers: {
       GET: async () => {
-        const now = new Date().toISOString().slice(0, 10);
+        const now = await latestContentLastmod();
         const urls = recentYears().map((y) => {
           const loc = `${BASE_URL}/year/${y}`;
-          return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.5</priority>\n  </url>`;
+          return `  <url>\n    <loc>${loc}</loc>\n${now ? `    <lastmod>${now}</lastmod>\n` : ""}    <changefreq>monthly</changefreq>\n    <priority>0.5</priority>\n  </url>`;
         });
         const xml = [
           `<?xml version="1.0" encoding="UTF-8"?>`,
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/sitemap-years.xml")({
           `</urlset>`,
         ].join("\n");
         return new Response(xml, {
-          headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+          headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=300, stale-while-revalidate=600" },
         });
       },
     },

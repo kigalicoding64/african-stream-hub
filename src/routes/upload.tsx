@@ -1,4 +1,5 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { notifySitemapUpdated } from "@/lib/sitemap.functions";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Upload as UploadIcon, X, Check, Loader2, Film, Sparkles, Image as ImageIcon,
@@ -237,6 +238,7 @@ function UploadPage() {
     updateItem(id, { visibility: "public" });
     setConfirmPublishId(null);
     toast.success("Now public", { description: "Visible on the public feed." });
+    void notifySitemapUpdated().catch(() => {});
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("ibona:video-updated", { detail: { id: it.videoId } }));
     }
@@ -260,6 +262,7 @@ function UploadPage() {
     }
     setPublishing(false);
     setBulkProgress(null);
+    if (ok > 0) void notifySitemapUpdated().catch(() => {});
     if (ok > 0 && fail === 0) toast.success(`Published ${ok} draft${ok === 1 ? "" : "s"} to public`);
     else if (ok > 0 && fail > 0) toast.warning(`Published ${ok}, ${fail} failed`, { description: failures.slice(0, 3).join(" • ") });
     else toast.error(`Couldn't publish ${fail} draft${fail === 1 ? "" : "s"}`, { description: failures.slice(0, 3).join(" • ") });
