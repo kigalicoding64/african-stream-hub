@@ -115,8 +115,9 @@ function SearchPage() {
     [search],
   );
 
-  const set = <K extends keyof typeof search>(key: K, value: (typeof search)[K]) =>
-    navigate({ search: (prev) => ({ ...prev, [key]: value }) });
+  type SearchState = typeof search;
+  const set = <K extends keyof SearchState>(key: K, value: SearchState[K]) =>
+    navigate({ search: (prev: SearchState) => ({ ...prev, [key]: value }) });
 
   const clearAll = () =>
     navigate({
