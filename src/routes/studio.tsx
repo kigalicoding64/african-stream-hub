@@ -343,6 +343,7 @@ function EditModal({ row, onClose, onSaved }: { row: Row; onClose: () => void; o
   const save = async () => {
     setSaving(true);
     const { error } = await supabase.from("videos").update({ title: title.trim(), description, language, category, visibility }).eq("id", row.id);
+    if (!error && visibility === "public") void notifySitemapUpdated().catch(() => {});
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Saved");
