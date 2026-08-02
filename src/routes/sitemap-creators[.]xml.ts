@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
+import { latestContentLastmod } from "@/lib/sitemap-freshness.server";
 
 const BASE_URL = "https://rebalive.egreedtech.org";
 
@@ -30,7 +31,7 @@ export const Route = createFileRoute("/sitemap-creators.xml")({
           }
         } catch { /* empty */ }
 
-        const now = new Date().toISOString().slice(0, 10);
+        const now = await latestContentLastmod();
         const urls = rows
           .filter((p) => p.username)
           .map((p) => {
@@ -39,7 +40,7 @@ export const Route = createFileRoute("/sitemap-creators.xml")({
             return [
               `  <url>`,
               `    <loc>${loc}</loc>`,
-              `    <lastmod>${now}</lastmod>`,
+              now ? `    <lastmod>${now}</lastmod>` : null,
               `    <changefreq>weekly</changefreq>`,
               `    <priority>0.6</priority>`,
               img || null,
@@ -58,7 +59,7 @@ export const Route = createFileRoute("/sitemap-creators.xml")({
         return new Response(xml, {
           headers: {
             "Content-Type": "application/xml; charset=utf-8",
-            "Cache-Control": "public, max-age=1800",
+            "Cache-Control": "public, max-age=300, stale-while-revalidate=600",
           },
         });
       },

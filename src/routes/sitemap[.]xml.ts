@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
+import { latestContentLastmod } from "@/lib/sitemap-freshness.server";
 
 const BASE_URL = "https://rebalive.egreedtech.org";
 
@@ -8,7 +9,7 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
-        const now = new Date().toISOString();
+        const now = await latestContentLastmod();
         const children = [
           { loc: `${BASE_URL}/sitemap-pages.xml`, lastmod: now },
           { loc: `${BASE_URL}/sitemap-videos.xml`, lastmod: now },
@@ -24,14 +25,14 @@ export const Route = createFileRoute("/sitemap.xml")({
           `<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
           ...children.map(
             (c) =>
-              `  <sitemap>\n    <loc>${c.loc}</loc>\n    <lastmod>${c.lastmod}</lastmod>\n  </sitemap>`,
+              `  <sitemap>\n    <loc>${c.loc}</loc>\n${c.lastmod ? `    <lastmod>${c.lastmod}</lastmod>\n` : ""}  </sitemap>`,
           ),
           `</sitemapindex>`,
         ].join("\n");
         return new Response(xml, {
           headers: {
             "Content-Type": "application/xml; charset=utf-8",
-            "Cache-Control": "public, max-age=1800",
+            "Cache-Control": "public, max-age=300, stale-while-revalidate=600",
           },
         });
       },

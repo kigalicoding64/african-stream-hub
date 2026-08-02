@@ -43,6 +43,7 @@ import { Route as DocumentarySlugRouteImport } from './routes/documentary.$slug'
 import { Route as CountryCountryRouteImport } from './routes/country.$country'
 import { Route as CUsernameRouteImport } from './routes/c.$username'
 import { Route as AnimeSlugRouteImport } from './routes/anime.$slug'
+import { Route as ApiPublicSitemapPingRouteImport } from './routes/api/public/sitemap-ping'
 
 const UploadRoute = UploadRouteImport.update({
   id: '/upload',
@@ -214,6 +215,11 @@ const AnimeSlugRoute = AnimeSlugRouteImport.update({
   path: '/anime/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicSitemapPingRoute = ApiPublicSitemapPingRouteImport.update({
+  id: '/api/public/sitemap-ping',
+  path: '/api/public/sitemap-ping',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -250,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/tv/$slug': typeof TvSlugRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
   '/year/$year': typeof YearYearRoute
+  '/api/public/sitemap-ping': typeof ApiPublicSitemapPingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -286,6 +293,7 @@ export interface FileRoutesByTo {
   '/tv/$slug': typeof TvSlugRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
   '/year/$year': typeof YearYearRoute
+  '/api/public/sitemap-ping': typeof ApiPublicSitemapPingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -323,6 +331,7 @@ export interface FileRoutesById {
   '/tv/$slug': typeof TvSlugRoute
   '/watch/$videoId': typeof WatchVideoIdRoute
   '/year/$year': typeof YearYearRoute
+  '/api/public/sitemap-ping': typeof ApiPublicSitemapPingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -361,6 +370,7 @@ export interface FileRouteTypes {
     | '/tv/$slug'
     | '/watch/$videoId'
     | '/year/$year'
+    | '/api/public/sitemap-ping'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -397,6 +407,7 @@ export interface FileRouteTypes {
     | '/tv/$slug'
     | '/watch/$videoId'
     | '/year/$year'
+    | '/api/public/sitemap-ping'
   id:
     | '__root__'
     | '/'
@@ -433,6 +444,7 @@ export interface FileRouteTypes {
     | '/tv/$slug'
     | '/watch/$videoId'
     | '/year/$year'
+    | '/api/public/sitemap-ping'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -470,6 +482,7 @@ export interface RootRouteChildren {
   TvSlugRoute: typeof TvSlugRoute
   WatchVideoIdRoute: typeof WatchVideoIdRoute
   YearYearRoute: typeof YearYearRoute
+  ApiPublicSitemapPingRoute: typeof ApiPublicSitemapPingRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -712,6 +725,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AnimeSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/sitemap-ping': {
+      id: '/api/public/sitemap-ping'
+      path: '/api/public/sitemap-ping'
+      fullPath: '/api/public/sitemap-ping'
+      preLoaderRoute: typeof ApiPublicSitemapPingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -750,6 +770,7 @@ const rootRouteChildren: RootRouteChildren = {
   TvSlugRoute: TvSlugRoute,
   WatchVideoIdRoute: WatchVideoIdRoute,
   YearYearRoute: YearYearRoute,
+  ApiPublicSitemapPingRoute: ApiPublicSitemapPingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

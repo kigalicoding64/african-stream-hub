@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
+import { latestContentLastmod } from "@/lib/sitemap-freshness.server";
 
 const BASE_URL = "https://rebalive.egreedtech.org";
 
@@ -13,7 +14,7 @@ export const Route = createFileRoute("/sitemap-pages.xml")({
   server: {
     handlers: {
       GET: async () => {
-        const now = new Date().toISOString().slice(0, 10);
+        const now = await latestContentLastmod();
         const entries: Entry[] = [
           { path: "/", changefreq: "daily", priority: "1.0" },
           { path: "/trending", changefreq: "hourly", priority: "0.9" },
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/sitemap-pages.xml")({
         ];
         const urls = entries.map(
           (e) =>
-            `  <url>\n    <loc>${BASE_URL}${e.path}</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>${e.changefreq}</changefreq>\n    <priority>${e.priority}</priority>\n    <xhtml:link rel="alternate" hreflang="rw" href="${BASE_URL}${e.path}"/>\n    <xhtml:link rel="alternate" hreflang="en" href="${BASE_URL}${e.path}"/>\n    <xhtml:link rel="alternate" hreflang="sw" href="${BASE_URL}${e.path}"/>\n    <xhtml:link rel="alternate" hreflang="x-default" href="${BASE_URL}${e.path}"/>\n  </url>`,
+            `  <url>\n    <loc>${BASE_URL}${e.path}</loc>\n${now ? `    <lastmod>${now}</lastmod>\n` : ""}    <changefreq>${e.changefreq}</changefreq>\n    <priority>${e.priority}</priority>\n    <xhtml:link rel="alternate" hreflang="rw" href="${BASE_URL}${e.path}"/>\n    <xhtml:link rel="alternate" hreflang="en" href="${BASE_URL}${e.path}"/>\n    <xhtml:link rel="alternate" hreflang="sw" href="${BASE_URL}${e.path}"/>\n    <xhtml:link rel="alternate" hreflang="x-default" href="${BASE_URL}${e.path}"/>\n  </url>`,
         );
         const xml = [
           `<?xml version="1.0" encoding="UTF-8"?>`,
@@ -35,7 +36,7 @@ export const Route = createFileRoute("/sitemap-pages.xml")({
         return new Response(xml, {
           headers: {
             "Content-Type": "application/xml; charset=utf-8",
-            "Cache-Control": "public, max-age=1800",
+            "Cache-Control": "public, max-age=300, stale-while-revalidate=600",
           },
         });
       },
