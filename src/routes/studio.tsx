@@ -1,4 +1,5 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
+import { notifySitemapUpdated } from "@/lib/sitemap.functions";
 import { useEffect, useState } from "react";
 import { useRef } from "react";
 import { Upload as UploadIcon, Eye, Heart, Trash2, Edit3, Loader2, Film, X, Check, BarChart3, Users, MessageCircle, Sparkles, RefreshCw, Copy, Languages, FileText, Image as ImageIcon, Star } from "lucide-react";
