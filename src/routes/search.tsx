@@ -91,9 +91,12 @@ function SearchPage() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [creators, setCreators] = useState<CreatorProfile[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [cursor, setCursor] = useState<string | null>(null);
   const [popularOnly, setPopularOnly] = useState(false);
   const [includeDrafts, setIncludeDrafts] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const hasFacets = useMemo(
     () =>
