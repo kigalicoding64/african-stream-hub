@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { Loader2, Search as SearchIcon, Sparkles, EyeOff, SlidersHorizontal, X } from "lucide-react";
@@ -8,7 +8,7 @@ import { VideoCard } from "@/components/VideoCard";
 import {
   searchAll,
   dbToVideo,
-  fetchAdvancedSearch,
+  fetchAdvancedSearchPage,
   type CreatorProfile,
   type DbVideo,
 } from "@/lib/videos-api";
