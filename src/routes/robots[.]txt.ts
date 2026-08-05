@@ -16,7 +16,7 @@ export const Route = createFileRoute("/robots.txt")({
           "Disallow: /upload",
           "Disallow: /settings",
           "Disallow: /profile",
-          "Disallow: /search?",
+          "# Filtered search URLs are indexable so long-tail queries surface",
           "",
           "# Explicit allow for high-value crawlers",
           "User-agent: Googlebot",
