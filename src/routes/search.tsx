@@ -142,36 +142,46 @@ function SearchPage() {
       },
     });
 
+  const filters = useMemo(
+    () => ({
+      q,
+      actor: search.actor,
+      director: search.director,
+      genre: search.genre,
+      country: search.country,
+      year: search.year || undefined,
+      language: search.language,
+      subtitles: search.subtitles,
+      agasobanuye: search.agasobanuye,
+      minRating: search.rating,
+      duration: (search.duration || "") as "" | "short" | "medium" | "long",
+      quality: search.quality,
+      collection: (search.collection || "") as "" | "featured" | "trending" | "top_rated" | "editors_choice",
+      sort: (search.sort || "newest") as "newest" | "popular" | "rating" | "title" | "duration",
+      limit: PAGE_SIZE,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [q, JSON.stringify(search)],
+  );
+
   useEffect(() => {
     if (!q.trim() && !hasFacets) {
       setVideos([]);
       setCreators([]);
+      setCursor(null);
       return;
     }
     let cancelled = false;
     const run = async () => {
       setLoading(true);
+      setCursor(null);
 
       // Facet-driven query is authoritative when any filter is active.
       if (hasFacets) {
-        const rows = await fetchAdvancedSearch({
-          q,
-          actor: search.actor,
-          director: search.director,
-          genre: search.genre,
-          country: search.country,
-          year: search.year || undefined,
-          language: search.language,
-          subtitles: search.subtitles,
-          agasobanuye: search.agasobanuye,
-          minRating: search.rating,
-          duration: (search.duration || "") as "" | "short" | "medium" | "long",
-          quality: search.quality,
-          collection: (search.collection || "") as "" | "featured" | "trending" | "top_rated" | "editors_choice",
-          sort: (search.sort || "newest") as "newest" | "popular" | "rating" | "title" | "duration",
-        });
+        const page = await fetchAdvancedSearchPage(filters, null);
         if (cancelled) return;
-        setVideos(rows);
+        setVideos(page.items);
+        setCursor(page.nextCursor);
         const { creators: cs } = q.trim()
           ? await searchAll(q, { includeDrafts, viewerId: user?.id ?? null })
           : { creators: [] as CreatorProfile[] };
@@ -181,9 +191,10 @@ function SearchPage() {
         return;
       }
 
-      const [textRes, semRes] = await Promise.all([
+      const [textRes, semRes, firstPage] = await Promise.all([
         searchAll(q, { includeDrafts, viewerId: user?.id ?? null }),
         semanticSearch({ data: { q } }).catch(() => ({ ok: false, ids: [] as string[] })),
+        fetchAdvancedSearchPage(filters, null),
       ]);
       if (cancelled) return;
       let semVideos: Video[] = [];
@@ -198,9 +209,17 @@ function SearchPage() {
         const byId = new Map<string, DbVideo>(((data as unknown as DbVideo[]) ?? []).map((v) => [v.id, v]));
         semVideos = semIds.map((id) => byId.get(id)).filter(Boolean).map((v) => dbToVideo(v!));
       }
+      if (cancelled) return;
       const seen = new Set(semVideos.map((v) => v.id));
-      const merged = [...semVideos, ...textRes.videos.filter((v) => !seen.has(v.id))];
+      const merged = [...semVideos];
+      for (const v of [...textRes.videos, ...firstPage.items]) {
+        if (seen.has(v.id)) continue;
+        seen.add(v.id);
+        merged.push(v);
+      }
       setVideos(merged);
+      // Keep paging through the keyword window so long catalogs stay browsable.
+      setCursor(firstPage.nextCursor);
       setCreators(textRes.creators);
       setLoading(false);
     };
@@ -212,12 +231,42 @@ function SearchPage() {
       if (typeof window !== "undefined") window.removeEventListener("ibona:video-updated", onUpdate);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, includeDrafts, user?.id, hasFacets, JSON.stringify(search)]);
+  }, [q, includeDrafts, user?.id, hasFacets, filters]);
+
+  const loadMore = useCallback(async () => {
+    if (!cursor || loadingMore || loading) return;
+    setLoadingMore(true);
+    const page = await fetchAdvancedSearchPage(filters, cursor).catch(() => ({
+      items: [] as Video[],
+      nextCursor: null,
+    }));
+    setVideos((prev) => {
+      const seen = new Set(prev.map((v) => v.id));
+      return [...prev, ...page.items.filter((v) => !seen.has(v.id))];
+    });
+    setCursor(page.nextCursor);
+    setLoadingMore(false);
+  }, [cursor, loadingMore, loading, filters]);
+
+  // Infinite scroll — observes a sentinel below the grid (mobile-friendly, no button taps).
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !cursor || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) void loadMore();
+      },
+      { rootMargin: "600px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [cursor, loadMore]);
 
   const shownVideos = useMemo(
     () => (popularOnly ? videos.filter(isPopularAfrica) : videos),
     [videos, popularOnly],
   );
+
 
   return (
     <AppLayout>
