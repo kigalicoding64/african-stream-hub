@@ -18,6 +18,8 @@ import { isPopularAfrica, type Video } from "@/data/videos";
 import { useAuth } from "@/contexts/AuthContext";
 import { GENRES, COUNTRIES, recentYears } from "@/lib/taxonomy";
 
+const PAGE_SIZE = 24;
+
 const schema = z.object({
   q: fallback(z.string(), "").default(""),
   actor: fallback(z.string(), "").default(""),
