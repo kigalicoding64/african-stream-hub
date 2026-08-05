@@ -86,7 +86,7 @@ export function SearchAutocomplete({ className = "" }: { className?: string }) {
       return;
     }
     if (s.kind === "collection") {
-      navigate({ to: "/search", search: { collection: s.hint ?? "" } });
+      navigate({ to: "/search", search: { collection: s.slug ?? "" } });
       return;
     }
     goFreeText(s.label);
