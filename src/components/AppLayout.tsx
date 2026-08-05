@@ -1,7 +1,8 @@
 import { ReactNode, useState } from "react";
 import { AppSidebar, MobileBottomNav } from "./Sidebar";
-import { Search, Bell, Wifi, WifiOff, LogOut, User, LayoutDashboard, Upload as UploadIcon, Settings as SettingsIcon } from "lucide-react";
+import { Bell, Wifi, WifiOff, LogOut, User, LayoutDashboard, Upload as UploadIcon, Settings as SettingsIcon } from "lucide-react";
 import { IbonaLogo } from "./IbonaLogo";
+import { SearchAutocomplete } from "./SearchAutocomplete";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSettings } from "@/contexts/SettingsContext";
