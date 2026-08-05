@@ -59,7 +59,7 @@ export const Route = createFileRoute("/sitemap-creators.xml")({
         return new Response(xml, {
           headers: {
             "Content-Type": "application/xml; charset=utf-8",
-            "Cache-Control": "public, max-age=300, stale-while-revalidate=600",
+            "Cache-Control": "public, max-age=120, stale-while-revalidate=600",
           },
         });
       },
