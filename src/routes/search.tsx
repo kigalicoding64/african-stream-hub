@@ -477,8 +477,28 @@ function SearchPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {shownVideos.map((v) => <VideoCard key={v.id} video={v} />)}
             </div>
+
+            {/* Infinite-scroll sentinel + accessible fallback control */}
+            <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />
+            {cursor && (
+              <div className="flex justify-center py-8">
+                <button
+                  type="button"
+                  onClick={() => void loadMore()}
+                  disabled={loadingMore}
+                  className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-5 py-2.5 text-sm font-medium transition hover:bg-surface-elevated disabled:opacity-60"
+                >
+                  {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {loadingMore ? "Loading more..." : "Load more results"}
+                </button>
+              </div>
+            )}
+            {!cursor && shownVideos.length > PAGE_SIZE && (
+              <p className="py-8 text-center text-sm text-muted-foreground">End of results.</p>
+            )}
           </section>
         )}
+
       </div>
     </AppLayout>
   );
