@@ -21,25 +21,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <Link to="/" className="lg:hidden">
             <IbonaLogo />
           </Link>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              const q = String(fd.get("q") || "").trim();
-              navigate({ to: "/search", search: { q } });
-            }}
-            className="hidden sm:flex flex-1 max-w-xl mx-auto"
-          >
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                name="q"
-                type="search"
-                placeholder="Search videos, creators, sounds..."
-                className="w-full rounded-full bg-surface border border-border pl-10 pr-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition"
-              />
-            </div>
-          </form>
+          <div className="hidden sm:flex flex-1 max-w-xl mx-auto">
+            <SearchAutocomplete />
+          </div>
           <div className="flex-1 sm:hidden" />
 
           {/* Low-data toggle */}
