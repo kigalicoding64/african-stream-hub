@@ -22,10 +22,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <Link to="/" className="lg:hidden">
             <IbonaLogo />
           </Link>
-          <div className="hidden sm:flex flex-1 max-w-xl mx-auto">
+          <div className="flex flex-1 max-w-xl mx-auto">
             <SearchAutocomplete />
           </div>
-          <div className="flex-1 sm:hidden" />
 
           {/* Low-data toggle */}
           <button
