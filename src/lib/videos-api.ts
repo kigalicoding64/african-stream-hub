@@ -625,7 +625,7 @@ export async function fetchSuggestions(term: string, limit = 8): Promise<Suggest
     if (g.toLowerCase().includes(lower)) push({ kind: "genre", label: g, hint: "Genre" });
   }
   for (const c of COLLECTION_SUGGESTIONS) {
-    if (c.label.toLowerCase().includes(lower)) push({ kind: "collection", label: c.label, hint: c.value });
+    if (c.label.toLowerCase().includes(lower)) push({ kind: "collection", label: c.label, hint: "Collection", slug: c.value });
   }
   for (const c of ((creatorRes.data as { username: string | null; display_name: string | null }[]) ?? [])) {
     const label = c.display_name || c.username;
