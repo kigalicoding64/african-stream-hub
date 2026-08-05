@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { GENRES } from "@/lib/taxonomy";
 import type { Video } from "@/data/videos";
 
 export interface DbVideo {
@@ -405,8 +406,27 @@ export interface AdvancedSearchFilters {
 
 const sel = (s: string): string => s;
 
-/** Runs a multi-facet filtered query against public, ready videos. */
-export async function fetchAdvancedSearch(f: AdvancedSearchFilters): Promise<Video[]> {
+/** Opaque cursor: base64-encoded offset into the current filter/sort window. */
+function encodeCursor(offset: number): string {
+  return btoa(JSON.stringify({ o: offset }));
+}
+function decodeCursor(cursor?: string | null): number {
+  if (!cursor) return 0;
+  try {
+    const parsed = JSON.parse(atob(cursor)) as { o?: number };
+    const o = Number(parsed.o);
+    return Number.isFinite(o) && o >= 0 ? o : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export interface PagedVideos {
+  items: Video[];
+  nextCursor: string | null;
+}
+
+function applyFilters(f: AdvancedSearchFilters, ids?: string[]) {
   const like = (v: string) => `%${v.trim().replace(/[%_]/g, (m) => "\\" + m)}%`;
 
   let query = supabase
@@ -437,16 +457,7 @@ export async function fetchAdvancedSearch(f: AdvancedSearchFilters): Promise<Vid
   if (f.duration === "medium") query = query.gte("duration_seconds", 300).lt("duration_seconds", 2400);
   if (f.duration === "long") query = query.gte("duration_seconds", 2400);
 
-  if (f.subtitles) {
-    const { data: caps } = await supabase
-      .from("video_captions")
-      .select("video_id")
-      .eq("language", f.subtitles)
-      .limit(2000);
-    const ids = (caps ?? []).map((c) => c.video_id as string);
-    if (ids.length === 0) return [];
-    query = query.in("id", ids);
-  }
+  if (ids) query = query.in("id", ids);
 
   switch (f.sort) {
     case "popular":
@@ -464,7 +475,163 @@ export async function fetchAdvancedSearch(f: AdvancedSearchFilters): Promise<Vid
     default:
       query = query.order("created_at", { ascending: false });
   }
-
-  const { data } = await query.limit(f.limit ?? 120).returns<DbVideo[]>();
-  return (data ?? []).map(dbToVideo);
+  // Stable tiebreaker so cursor windows never overlap or skip rows.
+  return query.order("id", { ascending: true });
 }
+
+async function subtitleIds(lang: string): Promise<string[]> {
+  const { data: caps } = await supabase
+    .from("video_captions")
+    .select("video_id")
+    .eq("language", lang)
+    .limit(2000);
+  return (caps ?? []).map((c) => c.video_id as string);
+}
+
+/**
+ * Cursor-paginated multi-facet query. Requests one extra row to detect whether
+ * another page exists, so mobile infinite scroll never fires a wasted round-trip.
+ */
+export async function fetchAdvancedSearchPage(
+  f: AdvancedSearchFilters,
+  cursor?: string | null,
+): Promise<PagedVideos> {
+  const pageSize = Math.max(1, f.limit ?? 24);
+  const offset = decodeCursor(cursor);
+
+  let ids: string[] | undefined;
+  if (f.subtitles) {
+    ids = await subtitleIds(f.subtitles);
+    if (ids.length === 0) return { items: [], nextCursor: null };
+  }
+
+  const query = applyFilters(f, ids);
+  const { data } = await query.range(offset, offset + pageSize).returns<DbVideo[]>();
+  const rows = data ?? [];
+  const hasMore = rows.length > pageSize;
+  const items = (hasMore ? rows.slice(0, pageSize) : rows).map(dbToVideo);
+  return { items, nextCursor: hasMore ? encodeCursor(offset + pageSize) : null };
+}
+
+/** Backwards-compatible single-shot variant. */
+export async function fetchAdvancedSearch(f: AdvancedSearchFilters): Promise<Video[]> {
+  const { items } = await fetchAdvancedSearchPage({ ...f, limit: f.limit ?? 120 }, null);
+  return items;
+}
+
+// ---- Autocomplete suggestions ----
+
+export type SuggestionKind = "title" | "actor" | "director" | "genre" | "collection" | "creator";
+
+export interface Suggestion {
+  kind: SuggestionKind;
+  label: string;
+  /** Extra context line, e.g. release year or handle. */
+  hint?: string;
+  /** Target slug/id for direct navigation when the suggestion is a title/creator. */
+  slug?: string;
+  movieType?: string | null;
+  videoId?: string;
+}
+
+const COLLECTION_SUGGESTIONS: Array<{ label: string; value: string }> = [
+  { label: "Featured", value: "featured" },
+  { label: "Trending now", value: "trending" },
+  { label: "Top rated", value: "top_rated" },
+  { label: "Editor's choice", value: "editors_choice" },
+];
+
+/** Type-ahead suggestions across titles, cast, directors, genres, collections and creators. */
+export async function fetchSuggestions(term: string, limit = 8): Promise<Suggestion[]> {
+  const t = term.trim();
+  if (t.length < 2) return [];
+  const lower = t.toLowerCase();
+  const like = `%${t.replace(/[%_]/g, (m) => "\\" + m)}%`;
+
+  const [vidRes, creatorRes] = await Promise.all([
+    supabase
+      .from("videos")
+      .select("id, title, slug, movie_type, release_year, director, cast, genres")
+      .eq("visibility", "public")
+      .eq("status", "ready")
+      .or(`title.ilike.${like},original_title.ilike.${like},director.ilike.${like}`)
+      .limit(40),
+    supabase
+      .from("profiles")
+      .select("username, display_name")
+      .or(`username.ilike.${like},display_name.ilike.${like}`)
+      .limit(6),
+  ]);
+
+  const out: Suggestion[] = [];
+  const seen = new Set<string>();
+  const push = (s: Suggestion) => {
+    const key = `${s.kind}:${s.label.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(s);
+  };
+
+  type Row = {
+    id: string;
+    title: string | null;
+    slug: string | null;
+    movie_type: string | null;
+    release_year: number | null;
+    director: string | null;
+    cast: string[] | null;
+    genres: string[] | null;
+  };
+  const rows = ((vidRes.data as unknown as Row[]) ?? []);
+
+  for (const r of rows) {
+    if (r.title && r.title.toLowerCase().includes(lower)) {
+      push({
+        kind: "title",
+        label: r.title,
+        hint: r.release_year ? String(r.release_year) : undefined,
+        slug: r.slug ?? undefined,
+        movieType: r.movie_type,
+        videoId: r.id,
+      });
+    }
+  }
+  for (const r of rows) {
+    if (r.director && r.director.toLowerCase().includes(lower)) {
+      push({ kind: "director", label: r.director, hint: "Director" });
+    }
+    for (const actor of r.cast ?? []) {
+      if (actor.toLowerCase().includes(lower)) push({ kind: "actor", label: actor, hint: "Actor" });
+    }
+  }
+
+  // Cast/director hits can also live on rows whose title didn't match the term.
+  if (out.filter((s) => s.kind === "actor").length === 0) {
+    const { data } = await supabase
+      .from("videos")
+      .select("cast")
+      .eq("visibility", "public")
+      .eq("status", "ready")
+      .overlaps("cast", [t])
+      .limit(5);
+    for (const r of ((data as { cast: string[] | null }[]) ?? [])) {
+      for (const actor of r.cast ?? []) {
+        if (actor.toLowerCase().includes(lower)) push({ kind: "actor", label: actor, hint: "Actor" });
+      }
+    }
+  }
+
+  for (const g of GENRES) {
+    if (g.toLowerCase().includes(lower)) push({ kind: "genre", label: g, hint: "Genre" });
+  }
+  for (const c of COLLECTION_SUGGESTIONS) {
+    if (c.label.toLowerCase().includes(lower)) push({ kind: "collection", label: c.label, hint: "Collection", slug: c.value });
+  }
+  for (const c of ((creatorRes.data as { username: string | null; display_name: string | null }[]) ?? [])) {
+    const label = c.display_name || c.username;
+    if (label) push({ kind: "creator", label, hint: c.username ? `@${c.username}` : undefined, slug: c.username ?? undefined });
+  }
+
+  return out.slice(0, limit);
+}
+
