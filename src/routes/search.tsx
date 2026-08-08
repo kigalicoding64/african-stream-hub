@@ -102,7 +102,10 @@ function SearchPage() {
   const [popularOnly, setPopularOnly] = useState(false);
   const [includeDrafts, setIncludeDrafts] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [facetCounts, setFacetCounts] = useState<FacetCounts | null>(null);
+  const [countsLoading, setCountsLoading] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
 
   const hasFacets = useMemo(
     () =>
