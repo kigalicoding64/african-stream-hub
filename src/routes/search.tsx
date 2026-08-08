@@ -9,9 +9,13 @@ import {
   searchAll,
   dbToVideo,
   fetchAdvancedSearchPage,
+  fetchFacetCounts,
+  type FacetKey,
+  type FacetCounts,
   type CreatorProfile,
   type DbVideo,
 } from "@/lib/videos-api";
+
 import { supabase } from "@/integrations/supabase/client";
 import { semanticSearch } from "@/lib/search.functions";
 import { isPopularAfrica, type Video } from "@/data/videos";
