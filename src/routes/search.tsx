@@ -503,6 +503,44 @@ function SearchPage() {
           </section>
         )}
 
+        {(q || hasFacets) && (
+          <section className="space-y-3" aria-label="Active filters and result counts">
+            <p className="text-sm text-muted-foreground">
+              {countsLoading && !facetCounts ? (
+                "Counting matches…"
+              ) : (
+                <>
+                  <span className="font-bold text-foreground">{facetCounts?.total ?? shownVideos.length}</span>{" "}
+                  total result{(facetCounts?.total ?? shownVideos.length) === 1 ? "" : "s"}
+                  {activeFacets.length > 0 && " for the active filters"}
+                </>
+              )}
+            </p>
+            {activeFacets.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {activeFacets.map((f) => {
+                  const n = facetCounts?.perFacet?.[f.key];
+                  return (
+                    <button
+                      key={f.key}
+                      onClick={f.clear}
+                      title={`Remove filter — ${n ?? "?"} results match this facet alone`}
+                      className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+                    >
+                      <span>{f.label}</span>
+                      <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold tabular-nums">
+                        {n === undefined ? "…" : n.toLocaleString()}
+                      </span>
+                      <X className="h-3 w-3 opacity-70" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+
         {!q && !hasFacets && (
           <p className="text-muted-foreground">Type in the search bar or open Filters to browse by genre, country, year, cast and more.</p>
         )}
