@@ -426,14 +426,16 @@ export interface PagedVideos {
   nextCursor: string | null;
 }
 
-function applyFilters(f: AdvancedSearchFilters, ids?: string[]) {
+function applyFilters(f: AdvancedSearchFilters, ids?: string[], countOnly = false) {
   const like = (v: string) => `%${v.trim().replace(/[%_]/g, (m) => "\\" + m)}%`;
 
-  let query = supabase
-    .from("videos")
-    .select(sel("*, profiles!videos_owner_profile_fk(display_name, username, avatar_url)"))
-    .eq("visibility", "public")
-    .eq("status", "ready");
+  let query = countOnly
+    ? supabase.from("videos").select("id", { count: "exact", head: true })
+    : supabase
+        .from("videos")
+        .select(sel("*, profiles!videos_owner_profile_fk(display_name, username, avatar_url)"));
+  query = query.eq("visibility", "public").eq("status", "ready") as typeof query;
+
 
   if (f.q?.trim()) {
     const l = like(f.q);
