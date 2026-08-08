@@ -242,6 +242,31 @@ function SearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, includeDrafts, user?.id, hasFacets, filters]);
 
+  // Result counts for the active filter set and for each active facet on its own.
+  useEffect(() => {
+    if (!q.trim() && !hasFacets) {
+      setFacetCounts(null);
+      return;
+    }
+    let cancelled = false;
+    setCountsLoading(true);
+    fetchFacetCounts(filters)
+      .then((c) => {
+        if (!cancelled) setFacetCounts(c);
+      })
+      .catch(() => {
+        if (!cancelled) setFacetCounts(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCountsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, hasFacets, filters]);
+
+
   const loadMore = useCallback(async () => {
     if (!cursor || loadingMore || loading) return;
     setLoadingMore(true);
