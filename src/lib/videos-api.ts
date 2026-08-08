@@ -521,6 +521,74 @@ export async function fetchAdvancedSearch(f: AdvancedSearchFilters): Promise<Vid
   return items;
 }
 
+/** Total number of rows matching a filter set (no rows fetched). */
+export async function countAdvancedSearch(f: AdvancedSearchFilters): Promise<number> {
+  let ids: string[] | undefined;
+  if (f.subtitles) {
+    ids = await subtitleIds(f.subtitles);
+    if (ids.length === 0) return 0;
+  }
+  const { count } = await applyFilters(f, ids, true);
+  return count ?? 0;
+}
+
+export type FacetKey =
+  | "genre"
+  | "country"
+  | "year"
+  | "language"
+  | "subtitles"
+  | "agasobanuye"
+  | "collection"
+  | "quality"
+  | "duration"
+  | "actor"
+  | "director"
+  | "rating";
+
+export interface FacetCounts {
+  /** Rows matching the full active filter set. */
+  total: number;
+  /** Rows matching the query plus a single active facet (isolated). */
+  perFacet: Partial<Record<FacetKey, number>>;
+}
+
+/**
+ * Counts for the whole active filter set plus, for each active facet, the count
+ * that facet would return on its own — so a user can see which facet narrows most.
+ */
+export async function fetchFacetCounts(f: AdvancedSearchFilters): Promise<FacetCounts> {
+  const base: AdvancedSearchFilters = { q: f.q };
+  const isolated: Array<[FacetKey, AdvancedSearchFilters]> = [];
+  const add = (key: FacetKey, patch: AdvancedSearchFilters) => isolated.push([key, { ...base, ...patch }]);
+
+  if (f.genre) add("genre", { genre: f.genre });
+  if (f.country) add("country", { country: f.country });
+  if (f.year) add("year", { year: f.year });
+  if (f.language) add("language", { language: f.language });
+  if (f.subtitles) add("subtitles", { subtitles: f.subtitles });
+  if (f.agasobanuye) add("agasobanuye", { agasobanuye: true });
+  if (f.collection) add("collection", { collection: f.collection });
+  if (f.quality) add("quality", { quality: f.quality });
+  if (f.duration) add("duration", { duration: f.duration });
+  if (f.actor?.trim()) add("actor", { actor: f.actor });
+  if (f.director?.trim()) add("director", { director: f.director });
+  if (typeof f.minRating === "number" && f.minRating > 0) add("rating", { minRating: f.minRating });
+
+  const [total, ...counts] = await Promise.all([
+    countAdvancedSearch(f).catch(() => 0),
+    ...isolated.map(([, filters]) => countAdvancedSearch(filters).catch(() => 0)),
+  ]);
+
+  const perFacet: Partial<Record<FacetKey, number>> = {};
+  isolated.forEach(([key], i) => {
+    perFacet[key] = counts[i] ?? 0;
+  });
+  return { total, perFacet };
+}
+
+
+
 // ---- Autocomplete suggestions ----
 
 export type SuggestionKind = "title" | "actor" | "director" | "genre" | "collection" | "creator";
