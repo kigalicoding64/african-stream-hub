@@ -9,9 +9,13 @@ import {
   searchAll,
   dbToVideo,
   fetchAdvancedSearchPage,
+  fetchFacetCounts,
+  type FacetKey,
+  type FacetCounts,
   type CreatorProfile,
   type DbVideo,
 } from "@/lib/videos-api";
+
 import { supabase } from "@/integrations/supabase/client";
 import { semanticSearch } from "@/lib/search.functions";
 import { isPopularAfrica, type Video } from "@/data/videos";
@@ -98,7 +102,10 @@ function SearchPage() {
   const [popularOnly, setPopularOnly] = useState(false);
   const [includeDrafts, setIncludeDrafts] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [facetCounts, setFacetCounts] = useState<FacetCounts | null>(null);
+  const [countsLoading, setCountsLoading] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
 
   const hasFacets = useMemo(
     () =>
@@ -235,6 +242,31 @@ function SearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, includeDrafts, user?.id, hasFacets, filters]);
 
+  // Result counts for the active filter set and for each active facet on its own.
+  useEffect(() => {
+    if (!q.trim() && !hasFacets) {
+      setFacetCounts(null);
+      return;
+    }
+    let cancelled = false;
+    setCountsLoading(true);
+    fetchFacetCounts(filters)
+      .then((c) => {
+        if (!cancelled) setFacetCounts(c);
+      })
+      .catch(() => {
+        if (!cancelled) setFacetCounts(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCountsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, hasFacets, filters]);
+
+
   const loadMore = useCallback(async () => {
     if (!cursor || loadingMore || loading) return;
     setLoadingMore(true);
@@ -268,6 +300,49 @@ function SearchPage() {
     () => (popularOnly ? videos.filter(isPopularAfrica) : videos),
     [videos, popularOnly],
   );
+
+  const activeFacets = useMemo(() => {
+    const list: Array<{ key: FacetKey; label: string; clear: () => void }> = [];
+    if (search.genre) list.push({ key: "genre", label: `Genre: ${search.genre}`, clear: () => set("genre", "") });
+    if (search.country)
+      list.push({
+        key: "country",
+        label: `Country: ${COUNTRIES.find((c) => c.code === search.country)?.name ?? search.country}`,
+        clear: () => set("country", ""),
+      });
+    if (search.year) list.push({ key: "year", label: `Year: ${search.year}`, clear: () => set("year", 0) });
+    if (search.language)
+      list.push({ key: "language", label: `Audio: ${search.language}`, clear: () => set("language", "") });
+    if (search.subtitles)
+      list.push({
+        key: "subtitles",
+        label: `Subtitles: ${search.subtitles.toUpperCase()}`,
+        clear: () => set("subtitles", ""),
+      });
+    if (search.agasobanuye)
+      list.push({ key: "agasobanuye", label: "Agasobanuye", clear: () => set("agasobanuye", false) });
+    if (search.collection)
+      list.push({
+        key: "collection",
+        label: COLLECTIONS.find((c) => c.value === search.collection)?.label ?? search.collection,
+        clear: () => set("collection", ""),
+      });
+    if (search.quality)
+      list.push({ key: "quality", label: `Quality: ${search.quality}`, clear: () => set("quality", "") });
+    if (search.duration)
+      list.push({
+        key: "duration",
+        label: DURATIONS.find((d) => d.value === search.duration)?.label ?? search.duration,
+        clear: () => set("duration", ""),
+      });
+    if (search.actor.trim()) list.push({ key: "actor", label: `Actor: ${search.actor}`, clear: () => set("actor", "") });
+    if (search.director.trim())
+      list.push({ key: "director", label: `Director: ${search.director}`, clear: () => set("director", "") });
+    if (search.rating)
+      list.push({ key: "rating", label: `Rating ≥ ${search.rating.toFixed(1)}`, clear: () => set("rating", 0) });
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(search)]);
 
 
   return (
@@ -427,6 +502,44 @@ function SearchPage() {
             </button>
           </section>
         )}
+
+        {(q || hasFacets) && (
+          <section className="space-y-3" aria-label="Active filters and result counts">
+            <p className="text-sm text-muted-foreground">
+              {countsLoading && !facetCounts ? (
+                "Counting matches…"
+              ) : (
+                <>
+                  <span className="font-bold text-foreground">{facetCounts?.total ?? shownVideos.length}</span>{" "}
+                  total result{(facetCounts?.total ?? shownVideos.length) === 1 ? "" : "s"}
+                  {activeFacets.length > 0 && " for the active filters"}
+                </>
+              )}
+            </p>
+            {activeFacets.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {activeFacets.map((f) => {
+                  const n = facetCounts?.perFacet?.[f.key];
+                  return (
+                    <button
+                      key={f.key}
+                      onClick={f.clear}
+                      title={`Remove filter — ${n ?? "?"} results match this facet alone`}
+                      className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+                    >
+                      <span>{f.label}</span>
+                      <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold tabular-nums">
+                        {n === undefined ? "…" : n.toLocaleString()}
+                      </span>
+                      <X className="h-3 w-3 opacity-70" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
 
         {!q && !hasFacets && (
           <p className="text-muted-foreground">Type in the search bar or open Filters to browse by genre, country, year, cast and more.</p>
