@@ -301,6 +301,49 @@ function SearchPage() {
     [videos, popularOnly],
   );
 
+  const activeFacets = useMemo(() => {
+    const list: Array<{ key: FacetKey; label: string; clear: () => void }> = [];
+    if (search.genre) list.push({ key: "genre", label: `Genre: ${search.genre}`, clear: () => set("genre", "") });
+    if (search.country)
+      list.push({
+        key: "country",
+        label: `Country: ${COUNTRIES.find((c) => c.code === search.country)?.name ?? search.country}`,
+        clear: () => set("country", ""),
+      });
+    if (search.year) list.push({ key: "year", label: `Year: ${search.year}`, clear: () => set("year", 0) });
+    if (search.language)
+      list.push({ key: "language", label: `Audio: ${search.language}`, clear: () => set("language", "") });
+    if (search.subtitles)
+      list.push({
+        key: "subtitles",
+        label: `Subtitles: ${search.subtitles.toUpperCase()}`,
+        clear: () => set("subtitles", ""),
+      });
+    if (search.agasobanuye)
+      list.push({ key: "agasobanuye", label: "Agasobanuye", clear: () => set("agasobanuye", false) });
+    if (search.collection)
+      list.push({
+        key: "collection",
+        label: COLLECTIONS.find((c) => c.value === search.collection)?.label ?? search.collection,
+        clear: () => set("collection", ""),
+      });
+    if (search.quality)
+      list.push({ key: "quality", label: `Quality: ${search.quality}`, clear: () => set("quality", "") });
+    if (search.duration)
+      list.push({
+        key: "duration",
+        label: DURATIONS.find((d) => d.value === search.duration)?.label ?? search.duration,
+        clear: () => set("duration", ""),
+      });
+    if (search.actor.trim()) list.push({ key: "actor", label: `Actor: ${search.actor}`, clear: () => set("actor", "") });
+    if (search.director.trim())
+      list.push({ key: "director", label: `Director: ${search.director}`, clear: () => set("director", "") });
+    if (search.rating)
+      list.push({ key: "rating", label: `Rating ≥ ${search.rating.toFixed(1)}`, clear: () => set("rating", 0) });
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(search)]);
+
 
   return (
     <AppLayout>
