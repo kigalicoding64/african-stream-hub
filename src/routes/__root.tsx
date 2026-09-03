@@ -88,9 +88,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
          Replace YOUR_ADCASH_LIB_ID with your actual Adcash library ID or URL
          ------------------------------------------------------------- */
       {
-        type: "text/javascript",
-        src: "//acscdn.com/script/aclib.js", // Replace with exact URL provided by Adcash
-        async: true,
+        <script id="aclib" type="text/javascript" src="//acscdn.com/script/aclib.js"></script>
+
       },
 
       /* -------------------------------------------------------------
@@ -98,12 +97,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
          Replace the inner code with the exact JS snippet from your Adcash dashboard
          ------------------------------------------------------------- */
       {
-        type: "text/javascript",
-        children: `
-          aclib.runAutoTag({
-            zoneId: 'pb4p6ccru1'
-          });
-        `,
+       <script type="text/javascript">
+    aclib.runAutoTag({
+        zoneId: 'nmnzgnqvor',
+    });
+</script>
+
       },
 
       /* Structured Data (JSON-LD Organization Schema) */
