@@ -1,114 +1,138 @@
-import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  Outlet,
+  createRootRouteWithContext,
+  HeadContent,
+  Scripts,
+} from "@tanstack/react-router";
 import { Toaster } from "sonner";
-
 import appCss from "../styles.css?url";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { SettingsProvider } from "@/contexts/SettingsContext";
-import { IBONA_KEYWORDS } from "@/lib/ibona-keywords";
+import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
+import { NotFoundPage } from "./not-found";
 
-function NotFoundComponent() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Go home
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
+const SITE_URL = "https://elscholarship.com";
+const OG_IMAGE = `${SITE_URL}/elscholaship-logo.jpg`;
+const ADSENSE_CLIENT = "ca-pub-9065960621746429";
 
-const SITE_ORIGIN = "https://rebalive.egreedtech.org";
-
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "IBONA — Agasobanuye, Film Nyarwanda, Amakuru & African Music" },
-      { name: "description", content: "IBONA (formerly Rebalive) — the #1 African-first streaming platform for agasobanuye, film nyarwanda, news shorts, comedy, and African music. Watch in Kinyarwanda, English, Swahili, and French. Free to stream and upload." },
-      { name: "keywords", content: IBONA_KEYWORDS },
-      { name: "author", content: "IBONA" },
-      { name: "robots", content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" },
-      { name: "google-site-verification", content: "" },
-      { property: "og:site_name", content: "IBONA" },
-      { property: "og:title", content: "IBONA — Agasobanuye, Film Nyarwanda & African Music" },
-      { property: "og:description", content: "Stream agasobanuye, film nyarwanda, amakuru, comedy, and African music. The African-first streaming platform — IBONA (Rebalive)." },
+
+      /* Primary Brand & Target Keyword Title */
+      {
+        title:
+          "ElScholarship — Fully Funded Global Scholarships, TVET Grants & University Mobility 2026",
+      },
+
+      /* Comprehensive Targeted Keywords (TVET, ICT, Engineering, Agri-Tech, TVET Rwanda) */
+      {
+        name: "keywords",
+        content:
+          "ElScholarship, El Scholarship, TVET scholarships Rwanda, Level 5 diploma scholarships, Level 6 advanced diploma grants, Kavumu Technical Secondary School scholarships, WDA scholarships, REB scholarships, Computer Systems and Architecture scholarships, software engineering grants, full stack developer scholarships, microcontrollers and embedded systems funding, computer networking scholarships, cybersecurity study grants, cloud computing scholarships, AI and machine learning scholarships, web development grants, robotics engineering scholarships, mechatronics grants, electrical engineering scholarships, electronics study grants, telecommunications engineering funding, agri-tech scholarships, satellite agriculture grants, smart farming fellowships, precision farming fellowships, graphic design scholarships, UI UX design grants, digital media production funding, audio production scholarships, fully funded scholarships 2026, university grants Rwanda, undergraduate scholarships, master's stipends, PhD fellowships, global academic mobility, study abroad grants",
+      },
+
+      /* Meta Description */
+      {
+        name: "description",
+        content:
+          "ElScholarship is the premier global academic mobility platform for TVET graduates, ICT developers, engineers, and researchers seeking fully funded university grants, living stipends, and international scholarships.",
+      },
+
+      /* Search Engine Directives */
+      { name: "robots", content: "index, follow, max-image-preview:large" },
+      { name: "author", content: "ElScholarship Team" },
+      { name: "google-adsense-account", content: ADSENSE_CLIENT },
+
+      /* OpenGraph Meta Tags (WhatsApp, Facebook, LinkedIn) */
+      { property: "og:site_name", content: "ElScholarship" },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: SITE_ORIGIN },
-      { property: "og:locale", content: "rw_RW" },
-      { property: "og:locale:alternate", content: "en_US" },
-      { property: "og:locale:alternate", content: "sw_KE" },
+      {
+        property: "og:title",
+        content: "ElScholarship — Verified TVET & Global University Scholarships",
+      },
+      {
+        property: "og:description",
+        content:
+          "Access thousands of fully funded scholarships, living stipends, and technical study grants on ElScholarship.",
+      },
+      { property: "og:image", content: OG_IMAGE },
+      { property: "og:url", content: SITE_URL },
+
+      /* Twitter Meta Tags */
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "IBONA — African-First Streaming" },
-      { name: "twitter:description", content: "Agasobanuye, film nyarwanda, comedy, music and news shorts in Kinyarwanda, Swahili & English." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/RZm7FI59fgbiqTq2M1TcARRKFye2/social-images/social-1777395773732-c3f0a703-0aac-47c4-9249-ebd4e1322db3.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/RZm7FI59fgbiqTq2M1TcARRKFye2/social-images/social-1777395773732-c3f0a703-0aac-47c4-9249-ebd4e1322db3.webp" },
+      { name: "twitter:title", content: "ElScholarship | Global TVET & Academic Mobility" },
+      {
+        name: "twitter:description",
+        content: "Apply for verified global scholarships, degree progression grants, and living allowances.",
+      },
+      { name: "twitter:image", content: OG_IMAGE },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://buxlzcsvnrouezmsvald.supabase.co", crossOrigin: "anonymous" },
-      { rel: "dns-prefetch", href: "https://buxlzcsvnrouezmsvald.supabase.co" },
-      { rel: "preconnect", href: "https://storage.googleapis.com", crossOrigin: "anonymous" },
-      { rel: "dns-prefetch", href: "https://storage.googleapis.com" },
-      { rel: "alternate", hrefLang: "rw", href: SITE_ORIGIN },
-      { rel: "alternate", hrefLang: "en", href: SITE_ORIGIN },
-      { rel: "alternate", hrefLang: "sw", href: SITE_ORIGIN },
-      { rel: "alternate", hrefLang: "x-default", href: SITE_ORIGIN },
+      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "canonical", href: SITE_URL },
     ],
     scripts: [
+      /* Google AdSense Script */
       {
-        type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "WebSite",
-          name: "IBONA",
-          alternateName: ["Rebalive", "Ibona Rwanda"],
-          url: SITE_ORIGIN,
-          inLanguage: ["rw", "en", "sw", "fr"],
-          potentialAction: {
-            "@type": "SearchAction",
-            target: `${SITE_ORIGIN}/search?q={search_term_string}`,
-            "query-input": "required name=search_term_string",
-          },
-        }),
+        async: true,
+        src: `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`,
+        crossOrigin: "anonymous",
       },
+
+      /* -------------------------------------------------------------
+         STEP 1: ADCASH LIBRARY SCRIPT
+         Replace YOUR_ADCASH_LIB_ID with your actual Adcash library ID or URL
+         ------------------------------------------------------------- */
+      {
+        type: "text/javascript",
+        src: "//acscdn.com/script/aclib.js", // Replace with exact URL provided by Adcash
+        async: true,
+      },
+
+      /* -------------------------------------------------------------
+         STEP 2: ADCASH TAG SCRIPT
+         Replace the inner code with the exact JS snippet from your Adcash dashboard
+         ------------------------------------------------------------- */
+      {
+        type: "text/javascript",
+        children: `
+          aclib.runAutoTag({
+            zoneId: 'YOUR_ADCASH_ZONE_ID'
+          });
+        `,
+      },
+
+      /* Structured Data (JSON-LD Organization Schema) */
       {
         type: "application/ld+json",
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "Organization",
-          name: "IBONA",
-          alternateName: "Rebalive",
-          url: SITE_ORIGIN,
-          logo: `${SITE_ORIGIN}/favicon.ico`,
-          sameAs: [],
+          "name": "ElScholarship",
+          "alternateName": ["El Scholarship", "Elysian Grants"],
+          "url": SITE_URL,
+          "logo": OG_IMAGE,
+          "description": "Global academic mobility directory indexing fully funded scholarships, TVET grants, and university stipends.",
         }),
       },
     ],
   }),
+  notFoundComponent: NotFoundPage,
   shellComponent: RootShell,
   component: RootComponent,
-  notFoundComponent: NotFoundComponent,
 });
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="h-full">
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className="flex min-h-full flex-col bg-slate-50 antialiased dark:bg-slate-950">
         {children}
         <Scripts />
       </body>
@@ -117,12 +141,18 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  const { queryClient } = Route.useRouteContext();
+
   return (
-    <AuthProvider>
-      <SettingsProvider>
-        <Outlet />
-        <Toaster theme="dark" position="top-center" richColors closeButton />
-      </SettingsProvider>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <div className="flex min-h-screen flex-col">
+        <SiteHeader />
+        <main className="flex-1 shrink-0">
+          <Outlet />
+        </main>
+        <SiteFooter />
+        <Toaster position="top-right" richColors />
+      </div>
+    </QueryClientProvider>
   );
 }
