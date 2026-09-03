@@ -101,7 +101,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         type: "text/javascript",
         children: `
           aclib.runAutoTag({
-            zoneId: 'YOUR_ADCASH_ZONE_ID'
+            zoneId: 'pb4p6ccru1'
           });
         `,
       },
