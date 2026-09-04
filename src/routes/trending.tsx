@@ -1,18 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { VideoCard } from "@/components/VideoCard";
-import { fetchPublishedVideos } from "@/lib/videos-api";
+import { fetchTrendingVideos, fetchTrendingComputedAt } from "@/lib/videos-api";
+import { supabase } from "@/integrations/supabase/client";
 import type { Video } from "@/data/videos";
-
-function parseViews(s: string): number {
-  if (!s) return 0;
-  const m = s.match(/([\d.]+)\s*([KM]?)/i);
-  if (!m) return Number(s) || 0;
-  const n = parseFloat(m[1]);
-  const unit = (m[2] || "").toUpperCase();
-  return unit === "M" ? n * 1_000_000 : unit === "K" ? n * 1_000 : n;
-}
 
 const TRENDING_DESC = "See what Africa is watching right now on IBONA — the most-viewed agasobanuye, film nyarwanda, music, comedy and news shorts trending across the continent this week.";
 
@@ -31,25 +23,55 @@ export const Route = createFileRoute("/trending")({
   component: TrendingPage,
 });
 
+function relTime(iso: string | null): string {
+  if (!iso) return "";
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const h = Math.round(mins / 60);
+  return h === 1 ? "1 hour ago" : `${h} hours ago`;
+}
+
 function TrendingPage() {
   const [list, setList] = useState<Video[]>([]);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    const [videos, at] = await Promise.all([fetchTrendingVideos(60), fetchTrendingComputedAt()]);
+    setList(videos);
+    setUpdatedAt(at);
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-    fetchPublishedVideos(200).then((all) => {
-      if (cancelled) return;
-      setList(all.slice().sort((a, b) => parseViews(b.views) - parseViews(a.views)));
-      setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, []);
+    const run = () => { if (!cancelled) load(); };
+    run();
+    const timer = setInterval(run, 5 * 60 * 1000);
+    const ch = supabase
+      .channel("trending-page")
+      .on("postgres_changes", { event: "*", schema: "public", table: "trending_scores" }, run)
+      .subscribe();
+    const onVisible = () => { if (document.visibilityState === "visible") run(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      supabase.removeChannel(ch);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [load]);
 
   return (
     <AppLayout>
       <header className="mb-8">
         <div className="text-xs font-bold uppercase tracking-widest text-primary mb-1">🔥 Hot right now</div>
         <h1 className="text-3xl sm:text-5xl font-black tracking-tight">Trending</h1>
-        <p className="text-muted-foreground mt-2">The most-watched uploads across IBONA.</p>
+        <p className="text-muted-foreground mt-2">
+          Ranked by views, likes and comments from the last 48 hours.
+          {updatedAt && <span className="ml-1">Updated {relTime(updatedAt)}.</span>}
+        </p>
       </header>
       {!loading && list.length === 0 ? (
         <p className="text-muted-foreground">No videos uploaded yet.</p>
