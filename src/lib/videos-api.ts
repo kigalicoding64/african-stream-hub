@@ -280,6 +280,9 @@ export async function incrementVideoView(id: string): Promise<void> {
     if (data) {
       await supabase.from("videos").update({ views: (data.views ?? 0) + 1 }).eq("id", id);
     }
+    // Time-stamped event so the scheduled trending window can measure recency.
+    const { data: auth } = await supabase.auth.getUser();
+    await supabase.from("video_view_events").insert({ video_id: id, viewer_id: auth?.user?.id ?? null });
   } catch {
     /* ignore */
   }
