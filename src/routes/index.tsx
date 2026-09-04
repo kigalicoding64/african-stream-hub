@@ -75,8 +75,25 @@ function Index() {
   useEffect(() => {
     let cancelled = false;
     fetchTopRatedVideos(12).then((v) => { if (!cancelled) setTopRated(v); });
-    fetchTrendingVideos(12).then((v) => { if (!cancelled) setTrendingNow(v); });
-    return () => { cancelled = true; };
+
+    // Trending is recomputed on a schedule in the backend; keep the rail in sync
+    // by refetching periodically and whenever the ranking table changes.
+    const loadTrending = () => fetchTrendingVideos(12).then((v) => { if (!cancelled) setTrendingNow(v); });
+    loadTrending();
+    const timer = setInterval(loadTrending, 5 * 60 * 1000);
+    const ch = supabase
+      .channel("trending-scores")
+      .on("postgres_changes", { event: "*", schema: "public", table: "trending_scores" }, () => loadTrending())
+      .subscribe();
+    const onVisible = () => { if (document.visibilityState === "visible") loadTrending(); };
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      supabase.removeChannel(ch);
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const featured = feed[0];
