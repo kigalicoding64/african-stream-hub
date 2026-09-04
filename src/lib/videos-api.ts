@@ -150,9 +150,47 @@ export async function fetchTopRatedVideos(limit = 12): Promise<Video[]> {
   return ((data as unknown as DbVideo[]) ?? []).map(dbToVideo);
 }
 
+/**
+ * Trending = the scheduled ranking in `trending_scores` (recent views, likes,
+ * comments and freshness inside a rolling window, recomputed hourly).
+ * Falls back to all-time views if the ranking table is empty.
+ */
 export async function fetchTrendingVideos(limit = 12): Promise<Video[]> {
+  const { data: ranked } = await supabase
+    .from("trending_scores")
+    .select("video_id, rank")
+    .order("rank", { ascending: true })
+    .limit(limit);
+
+  const ids = ((ranked as { video_id: string; rank: number }[] | null) ?? []).map((r) => r.video_id);
+  if (ids.length) {
+    const { data } = await supabase
+      .from("videos")
+      .select(SELECT_COLS)
+      .in("id", ids)
+      .eq("visibility", "public")
+      .eq("status", "ready");
+    const rows = (data as unknown as DbVideo[]) ?? [];
+    const order = new Map(ids.map((id, i) => [id, i]));
+    return rows
+      .slice()
+      .sort((a, b) => (order.get(a.id) ?? 999) - (order.get(b.id) ?? 999))
+      .map(dbToVideo);
+  }
+
   const { data } = await supabase.from("videos").select(SELECT_COLS).eq("visibility", "public").eq("status", "ready").order("views", { ascending: false, nullsFirst: false }).limit(limit);
   return ((data as unknown as DbVideo[]) ?? []).map(dbToVideo);
+}
+
+/** When the trending order was last recomputed. */
+export async function fetchTrendingComputedAt(): Promise<string | null> {
+  const { data } = await supabase
+    .from("trending_scores")
+    .select("computed_at")
+    .order("computed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as { computed_at: string } | null)?.computed_at ?? null;
 }
 
 export async function fetchRelatedVideos(video: Video, limit = 12): Promise<Video[]> {
