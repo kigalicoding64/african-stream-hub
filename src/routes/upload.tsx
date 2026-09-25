@@ -9,6 +9,7 @@ import {
 import { AppLayout } from "@/components/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { uploadToStreamtape } from "@/lib/streamtape";
 
 export const Route = createFileRoute("/upload")({
   ssr: false,
@@ -32,6 +33,7 @@ type Language = (typeof LANGUAGES)[number];
 type MediaType = "video" | "audio";
 type ItemStatus = "queued" | "uploading" | "done" | "error" | "cancelled";
 type Visibility = "public" | "private";
+type StorageProvider = "supabase" | "streamtape";
 
 const MAX_VIDEO_MB = 10240; // 10 GB
 const MAX_AUDIO_MB = 50;
@@ -71,6 +73,7 @@ interface QueueItem {
   duration: number;
   visibility: Visibility;
   videoId?: string;
+  storageProvider: StorageProvider;
 }
 
 interface XhrUploadOpts {
@@ -145,6 +148,8 @@ function UploadPage() {
   const [globalDescription, setGlobalDescription] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [filter, setFilter] = useState<QueueFilter>("all");
+  const [storageProvider, setStorageProvider] =
+    useState<StorageProvider>("supabase");
 
   // Metadata templates (persist locally)
   interface MetaTemplate { id: string; name: string; language: Language; category: Category; description: string; }
@@ -325,6 +330,7 @@ function UploadPage() {
         controller: null,
         duration: dur,
         visibility: "public",
+        storageProvider: storageProvider,
       });
     }
     if (accepted.length) setQueue((q) => [...q, ...accepted]);
@@ -380,18 +386,26 @@ function UploadPage() {
       if (!session || !user) throw new Error("Not signed in");
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 
-      // 1) Media file → videos bucket (works for both audio & video — bucket is public)
-      const ext = (item.file.name.split(".").pop() || (item.mediaType === "audio" ? "mp3" : "mp4")).toLowerCase();
-      const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-      await xhrUpload({
-        url: `${supabaseUrl}/storage/v1/object/videos/${path}`,
-        file: item.file,
-        token: session.access_token,
-        contentType: item.file.type || (item.mediaType === "audio" ? "audio/mpeg" : "video/mp4"),
-        onProgress: (p) => updateItem(item.id, { progress: Math.round(p * 0.92) }),
-        signal: ac.signal,
-      });
-      const { data: pub } = supabase.storage.from("videos").getPublicUrl(path);
+      let videoUrl: string;
+
+      if (item.storageProvider === "streamtape") {
+        videoUrl = await uploadToStreamtape(item.file);
+      updateItem(item.id, { progress: 96 });
+      } else {
+        // 1) Media file → videos bucket (works for both audio & video — bucket is public)
+        const ext = (item.file.name.split(".").pop() || (item.mediaType === "audio" ? "mp3" : "mp4")).toLowerCase();
+        const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+        await xhrUpload({
+          url: `${supabaseUrl}/storage/v1/object/videos/${path}`,
+          file: item.file,
+          token: session.access_token,
+          contentType: item.file.type || (item.mediaType === "audio" ? "audio/mpeg" : "video/mp4"),
+          onProgress: (p) => updateItem(item.id, { progress: Math.round(p * 0.92) }),
+          signal: ac.signal,
+        });
+        const { data: pub } = supabase.storage.from("videos").getPublicUrl(path);
+        videoUrl = pub.publicUrl;
+      }
 
       // 2) Optional thumbnail/cover
       let thumbUrl: string | null = null;
@@ -422,7 +436,7 @@ function UploadPage() {
           category: item.category,
           visibility: item.visibility === "private" ? "private" : "public",
           status: "ready",
-          video_url: pub.publicUrl,
+          video_url: videoUrl,
           thumbnail_url: thumbUrl,
           duration_seconds: item.duration || null,
           media_type: item.mediaType,
@@ -635,6 +649,20 @@ function UploadPage() {
           </div>
         </label>
 
+        {/* Storage Provider */}
+        {queue.length > 0 && (
+          <div className="rounded-2xl border border-border bg-surface p-4 mb-4">
+            <Field label="Video Storage Provider">
+              <Pills
+                options={["supabase", "streamtape"]}
+                value={storageProvider}
+                onChange={setStorageProvider}
+                brand
+              />
+            </Field>
+          </div>
+        )}
+
         {/* Rejected files (validation errors) */}
         {rejected.length > 0 && (
           <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 mb-4">
@@ -670,8 +698,8 @@ function UploadPage() {
                 </li>
               ))}
             </ul>
-          </div>
-        )}
+              </div>
+          )}
 
         {/* Defaults panel */}
         {queue.length > 0 && (
@@ -691,8 +719,8 @@ function UploadPage() {
                 className="mt-1 w-full rounded-xl bg-background border border-border px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none"
               />
             </Field>
-          </div>
-        )}
+            </div>
+          )}
 
         {/* Metadata templates */}
         {queue.length > 0 && (
@@ -719,8 +747,8 @@ function UploadPage() {
                 />
                 <button onClick={saveTemplate} className="rounded-full px-4 py-2 text-xs font-bold text-primary-foreground shadow-[var(--shadow-glow)]" style={{ background: "var(--gradient-brand)" }}>Save</button>
                 <button onClick={() => { setShowTemplateForm(false); setNewTemplateName(""); }} className="rounded-full px-3 py-2 text-xs font-semibold border border-border bg-background hover:bg-surface-elevated">Cancel</button>
-              </div>
-            )}
+        </div>
+          )}
             {templates.length === 0 ? (
               <p className="text-xs text-muted-foreground">No templates yet. Save your current language, category and description to apply them to many uploads in one click.</p>
             ) : (
@@ -736,9 +764,9 @@ function UploadPage() {
                       <button onClick={() => applyTemplate(tpl, "all")} title="Apply to ALL items in queue" className="rounded-full border border-border bg-background px-2 py-1 font-semibold hover:bg-surface-elevated">All</button>
                       <button onClick={() => deleteTemplate(tpl.id)} title="Delete template" className="rounded-full text-muted-foreground hover:text-destructive px-1.5">
                         <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </div>
+          </button>
+    </div>
+    </div>
                 ))}
               </div>
             )}
@@ -1027,6 +1055,9 @@ function QueueRow({
                     ? (item.visibility === "private" ? "Saved as draft" : "Published · Public")
                     : (item.visibility === "private" ? "Private (draft)" : "Public")}
                 </span>
+                <span className="ml-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-blue-500/15 text-blue-400 ring-1 ring-blue-400/30">
+                  {item.storageProvider}
+                </span>
               </div>
             </div>
             <StatusPill status={item.status} progress={item.progress} />
@@ -1179,3 +1210,4 @@ function Feat({ icon: Icon, title, desc }: { icon: typeof Film; title: string; d
     </div>
   );
 }
+
